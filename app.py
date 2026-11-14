@@ -8,11 +8,11 @@ import yfinance as yf
 st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
 st.title("🕌 Sistem Pendukung Keputusan (DSS) Portofolio Saham Syariah (JII)")
 st.markdown(
-    "Aplikasi analisis risiko, *return*, dan optimasi portofolio saham syariah berdasarkan "
+    "Aplikasi analisis risiko, *return*, optimasi bobot, dan rekomendasi portofolio syariah berdasarkan "
     "konstituen **Jakarta Islamic Index (JII)** di Bursa Efek Indonesia (BEI) secara *real-time*."
 )
 
-# --- 1. DAFTAR RESMI 30 SAHAM KONSTITUEN INDEKS JII (PERIODE JUNI - NOVEMBER 2026) ---
+# --- 1. DAFTAR RESMI 30 SAHAM KONSTITUEN INDEKS JII ---
 DAFTAR_SAHAM_JII = {
     "AADI.JK": "AADI - Adaro Andalan Indonesia Tbk. (Energi)",
     "ADMR.JK": "ADMR - Alamtri Minerals Indonesia Tbk. (Pertambangan)",
@@ -49,7 +49,6 @@ DAFTAR_SAHAM_JII = {
 # --- 2. SIDEBAR: PENGATURAN DINAMIS ---
 st.sidebar.header("⚙️ Pengaturan Portofolio JII")
 
-# Pilihan khusus saham JII
 saham_terpilih = st.sidebar.multiselect(
     "1. Pilih Saham Konstituen JII (Min. 2):",
     options=list(DAFTAR_SAHAM_JII.keys()),
@@ -76,28 +75,6 @@ periode_hitung = st.sidebar.selectbox(
     options=["Harian", "Mingguan", "Bulanan", "Tahunan"]
 )
 
-# Pengaturan Bobot Portofolio
-st.sidebar.subheader("4. Atur Bobot Investasi (%)")
-bobot_input = []
-for saham in saham_terpilih:
-    nama_bersih = saham.replace(".JK", "")
-    nilai = st.sidebar.slider(
-        f"Bobot {nama_bersih} (%)",
-        min_value=0,
-        max_value=100,
-        value=int(100 / len(saham_terpilih))
-    )
-    bobot_input.append(nilai)
-
-total_bobot = sum(bobot_input)
-if total_bobot == 0:
-    st.error("Total bobot investasi tidak boleh 0%!")
-    st.stop()
-
-weights = np.array(bobot_input) / total_bobot
-ringkasan_bobot = ", ".join([f"{s.replace('.JK', '')}: {w*100:.1f}%" for s, w in zip(saham_terpilih, weights)])
-st.sidebar.info(f"**Komposisi Bobot (Total 100%):**\n\n{ringkasan_bobot}")
-
 
 # --- 3. MENGAMBIL DATA REAL-TIME DARI WEB ---
 @st.cache_data(ttl=3600)
@@ -114,10 +91,8 @@ if df_raw.empty:
     st.error("Gagal menarik data saham. Periksa koneksi internet Anda lalu muat ulang halaman.")
     st.stop()
 
-# Urutkan kolom sesuai urutan pilihan user
 df_raw = df_raw[saham_terpilih]
 
-# Pemetaan aturan resampling & faktor tahunan
 aturan_periode = {
     "Harian": {"rule": "D", "faktor": 252, "ket": "252 hari perdagangan bursa dalam 1 tahun"},
     "Mingguan": {"rule": "W", "faktor": 52, "ket": "52 minggu dalam 1 tahun"},
@@ -134,13 +109,64 @@ if periode_hitung == "Harian":
 else:
     df_harga = df_raw.resample(rule_terpilih).last().dropna()
 
-# Bersihkan nama kolom untuk tampilan tabel agar lebih rapi (hapus .JK)
 df_harga_display = df_harga.copy()
 df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
 
+# Hitung Return & Statistik dasar untuk keperluan saran bobot
+df_return = df_harga_display.pct_change().dropna()
+mean_return = df_return.mean()
+cov_matrix = df_return.cov()
+
+# --- HITUNG SARAN BOBOT OTOMATIS (OPTIMASI SEDERHANA & SHARPE) ---
+np.random.seed(42)
+jumlah_simulasi = 5000
+bobot_terbaik = np.ones(len(saham_terpilih)) / len(saham_terpilih)
+max_sharpe = -999
+
+# Simulasi Monte Carlo untuk mencari bobot dengan Sharpe Ratio tertinggi
+for _ in range(jumlah_simulasi):
+    w = np.random.random(len(saham_terpilih))
+    w /= np.sum(w)
+    r_p = np.sum(mean_return * w) * faktor_waktu
+    std_p = np.sqrt(np.dot(w.T, np.dot(cov_matrix, w))) * np.sqrt(faktor_waktu)
+    sr = r_p / std_p if std_p != 0 else 0
+    if sr > max_sharpe:
+        max_sharpe = sr
+        bobot_terbaik = w
+
+# --- PENGATURAN BOBOT DI SIDEBAR (DENGAN Opsi Tombol Saran) ---
+st.sidebar.subheader("4. Atur Bobot Investasi (%)")
+
+mode_bobot = st.sidebar.radio(
+    "Metode Penentuan Bobot:",
+    options=["Manual (Slider)", "Saran Otomatis (Optimal Sharpe)", "Bobot Berimbang (Equal Weight)"]
+)
+
+bobot_input = []
+for i, saham in enumerate(saham_terpilih):
+    nama_bersih = saham.replace(".JK", "")
+    if mode_bobot == "Saran Otomatis (Optimal Sharpe)":
+        val_default = int(round(bobot_terbaik[i] * 100))
+    elif mode_bobot == "Bobot Berimbang (Equal Weight)":
+        val_default = int(round(100 / len(saham_terpilih)))
+    else:
+        val_default = int(100 / len(saham_terpilih))
+        
+    nilai = st.sidebar.slider(f"Bobot {nama_bersih} (%)", min_value=0, max_value=100, value=val_default)
+    bobot_input.append(nilai)
+
+total_bobot = sum(bobot_input)
+if total_bobot == 0:
+    st.error("Total bobot investasi tidak boleh 0%!")
+    st.stop()
+
+weights = np.array(bobot_input) / total_bobot
+ringkasan_bobot = ", ".join([f"{s.replace('.JK', '')}: {w*100:.1f}%" for s, w in zip(saham_terpilih, weights)])
+st.sidebar.info(f"**Komposisi Bobot Aktif (Total 100%):**\n\n{ringkasan_bobot}")
+
 
 # =====================================================================
-# TAMPILAN SHEET & PENJELASAN MENDALAM DI SETIAP PERHITUNGAN
+# TAMPILAN SHEET & SARAN PENGAMBILAN KEPUTUSAN BOBOT
 # =====================================================================
 
 # --- SHEET 1: DATA HARGA ---
@@ -149,45 +175,21 @@ st.dataframe(df_harga_display.tail(10).style.format("Rp {:,.0f}"), use_container
 
 with st.expander("📘 Penjelasan Detail Perhitungan Sheet 1 (Data Harga Historis)", expanded=True):
     st.markdown(f"""
-    * **Cakupan Emiten:** Hanya mengambil saham syariah likuid yang masuk dalam daftar resmi **Jakarta Islamic Index (JII)**.
-    * **Apa yang ditampilkan tabel ini?** Harga penutupan (*Adjusted Close Price*) resmi dalam mata uang Rupiah (Rp).
-    * **Metode Pengambilan ({periode_hitung}):** 
-      * Sistem menarik data historis selama **{rentang_waktu}** terakhir.
-      * Karena frekuensi yang dipilih adalah **{periode_hitung}**, sistem mengambil **harga penutupan pada akhir setiap periode {periode_hitung.lower()}** (fungsi *resampling* akhir periode).
-    * **Jumlah Titik Data:** Terdapat **{len(df_harga_display)} periode {periode_hitung.lower()}** yang valid untuk dianalisis.
+    * **Cakupan Emiten:** Konstituen resmi **Jakarta Islamic Index (JII)**.
+    * **Frekuensi Data:** Menggunakan rentang **{rentang_waktu}** dengan pengambilan harga penutupan di akhir setiap periode **{periode_hitung.lower()}**.
     """)
 
 # --- SHEET 2: RETURN ---
 st.header(f"2️⃣ Sheet Perhitungan Return / Imbal Hasil ({periode_hitung})")
-df_return = df_harga_display.pct_change().dropna()
 st.dataframe(df_return.tail(10).style.format("{:.2%}"), use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail Perhitungan Sheet 2 (Return Saham)", expanded=True):
-    saham_contoh = df_harga_display.columns[0]
-    if len(df_harga_display) >= 2:
-        h_lama = df_harga_display[saham_contoh].iloc[-2]
-        h_baru = df_harga_display[saham_contoh].iloc[-1]
-        ret_contoh = (h_baru - h_lama) / h_lama
-        teks_contoh = (
-            f"Pada saham **{saham_contoh}**, harga periode sebelumnya adalah **Rp {h_lama:,.0f}** "
-            f"dan harga periode terakhir adalah **Rp {h_baru:,.0f}**, sehingga return-nya: "
-            f"`({h_baru:,.0f} - {h_lama:,.0f}) / {h_lama:,.0f} = {ret_contoh:.2%}`."
-        )
-    else:
-        teks_contoh = "-"
-
     st.markdown(f"""
-    * **Tujuan Perhitungan:** Mengukur persentase kenaikan atau penurunan harga saham syariah dari satu periode ke periode berikutnya.
-    * **Rumus Matematis:**
-      $$R_t = \\frac{{P_t - P_{{t-1}}}}{{P_{{t-1}}}}$$
-      *(Di mana $P_t$ adalah harga periode sekarang, dan $P_{{t-1}}$ adalah harga periode sebelumnya).*
-    * **Padanan Rumus Excel:** `=(B3-B2)/B2`
-    * **Contoh Perhitungan Langsung:** {teks_contoh}
+    * **Rumus:** $R_t = \\frac{{P_t - P_{{t-1}}}}{{P_{{t-1}}}}$ (Persentase perubahan harga antar periode).
     """)
 
 # --- SHEET 3: STATISTIK INDIVIDUAL ---
 st.header("3️⃣ Sheet Statistik & Risiko Individual Saham")
-mean_return = df_return.mean()
 std_return = df_return.std()
 var_return = df_return.var()
 
@@ -203,60 +205,48 @@ st.dataframe(df_statistik.style.format("{:.4f}"), use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail Perhitungan Sheet 3 (Statistik & Annualisasi)", expanded=True):
     st.markdown(f"""
-    Tabel ini merangkum performa dan tingkat risiko masing-masing emiten JII secara terpisah:
-    1. **Mean Return ({periode_hitung}):** Rata-rata imbal hasil per {periode_hitung.lower()}. *(Rumus Excel: `=AVERAGE(...)`)*.
-    2. **Varians ({periode_hitung}):** Mengukur kuadrat penyebaran data return dari nilai rata-ratanya. *(Rumus Excel: `=VAR.S(...)`)*.
-    3. **Standar Deviasi / Risiko ({periode_hitung}):** Akar kuadrat dari varians. Menunjukkan seberapa besar fluktuasi naik-turunnya harga saham. *(Rumus Excel: `=STDEV.S(...)`)*.
-    4. **Penyetaraan Tahunan (*Annualization*):** Agar hasil perhitungan {periode_hitung.lower()} bisa dibandingkan dalam skala 1 tahun penuh:
-       * **Expected Return Tahunan** = $\\text{{Mean Return}} \\times {faktor_waktu}$ *(karena terdapat {ket_faktor})*.
-       * **Risiko Tahunan** = $\\text{{Std. Deviasi}} \\times \\sqrt{{{faktor_waktu}}}$.
+    * Merangkum return rata-rata dan tingkat risiko (*Standard Deviation*) masing-masing saham JII yang disetarakan dalam skala 1 tahun (dikalikan faktor **{faktor_waktu}**).
     """)
 
 # --- SHEET 4: MATRIKS KOVARIANS ---
 st.header("4️⃣ Sheet Matriks Kovarians (Covariance Matrix)")
-cov_matrix = df_return.cov()
 st.dataframe(cov_matrix.style.format("{:.6f}"), use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail Perhitungan Sheet 4 (Matriks Kovarians)", expanded=True):
     st.markdown("""
-    * **Apa fungsi Matriks Kovarians?** Dalam teori portofolio modern (*Markowitz*), risiko gabungan tidak cukup dihitung dari rata-rata risiko masing-masing saham, melainkan harus memperhitungkan **keterkaitan arah gerak antar saham**.
-    * **Cara Membaca Angka:**
-      * **Diagonal Utama (kiri atas ke kanan bawah):** Menunjukkan nilai **Varians** dari masing-masing saham itu sendiri.
-      * **Angka Positif (+):** Kedua saham cenderung bergerak searah (ketika saham A naik, saham B cenderung ikut naik).
-      * **Angka Negatif (-):** Kedua saham bergerak berlawanan arah. Sangat ideal untuk **diversifikasi**, karena saat satu saham turun, saham lainnya menahan penurunan portofolio.
-    * **Padanan Rumus Excel:** `=COVARIANCE.S(array1, array2)`
+    * Mengukur arah pergerakan bersama antar saham syariah untuk memperhitungkan efek diversifikasi portofolio.
     """)
 
-# --- SHEET 5: EVALUASI PORTOFOLIO ---
-st.header("5️⃣ Sheet Evaluasi Portofolio Syariah Gabungan")
+# --- SHEET 5: EVALUASI & SARAN PENGAMBILAN BOBOT ---
+st.header("5️⃣ Sheet Evaluasi Portofolio & Saran Pengambilan Bobot")
 
 port_return_periode = np.sum(mean_return * weights)
 port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-
 port_return_tahunan = port_return_periode * faktor_waktu
 port_std_tahunan = port_std_periode * np.sqrt(faktor_waktu)
 sharpe_ratio = port_return_tahunan / port_std_tahunan if port_std_tahunan != 0 else 0
 
 col1, col2, col3 = st.columns(3)
-col1.metric(f"Expected Return ({periode_hitung} / Tahunan)", f"{port_return_periode:.2%} / {port_return_tahunan:.2%}")
-col2.metric(f"Risiko Portofolio ({periode_hitung} / Tahunan)", f"{port_std_periode:.2%} / {port_std_tahunan:.2%}")
+col1.metric(f"Expected Return Tahunan", f"{port_return_tahunan:.2%}")
+col2.metric(f"Risiko Portofolio Tahunan", f"{port_std_tahunan:.2%}")
 col3.metric("Sharpe Ratio (Efisiensi)", f"{sharpe_ratio:.2f}")
 
-with st.expander("📘 Penjelasan Detail Perhitungan Sheet 5 (Rumus Portofolio Gabungan)", expanded=True):
+with st.expander("📘 Penjelasan Detail & Saran Pengambilan Bobot Saham", expanded=True):
+    # Hitung saran optimal murni untuk ditampilkan di teks panduan
+    saran_teks = []
+    for i, s in enumerate(saham_terpilih):
+        saran_teks.append(f"- **{s.replace('.JK', '')}**: disarankan bobot sekitar **{bobot_terbaik[i]*100:.1f}%**")
+    
     st.markdown(f"""
-    1. **Expected Return Portofolio ($E(R_p)$):**
-       * **Rumus:** $E(R_p) = \\sum (w_i \\times E(R_i))$
-       * **Penjelasan:** Penjumlahan dari perkalian antara **Bobot Investasi ($w_i$)** dengan **Rata-rata Return ($E(R_i)$)** tiap saham.
-       * **Hasil:** Diperoleh **{port_return_periode:.2%}** per {periode_hitung.lower()}, atau setara **{port_return_tahunan:.2%}** per tahun.
+    1. **Cara Kerja Evaluasi Portofolio:**
+       * **Expected Return Portofolio:** $\\sum (w_i \\times E(R_i))$ $\\rightarrow$ **{port_return_tahunan:.2%}** per tahun.
+       * **Risiko Portofolio:** $\\sqrt{{W^T \\times \\Sigma \\times W}}$ $\\rightarrow$ **{port_std_tahunan:.2%}** per tahun.
+       * **Sharpe Ratio:** Rasio efisiensi keuntungan terhadap risiko sebesar **{sharpe_ratio:.2f}**.
 
-    2. **Risiko Portofolio ($\\sigma_p$):**
-       * **Rumus Matriks:** $\\sigma_p = \\sqrt{{W^T \\times \\Sigma \\times W}}$
-       * **Penjelasan:** Perkalian vektor bobot ($W$), Matriks Kovarians pada Sheet 4 ($\\Sigma$), dan transpose bobot ($W^T$), lalu ditarik akar kuadratnya. *(Padanan Excel: `=SQRT(MMULT(TRANSPOSE(Bobot), MMULT(Matriks_Kovarians, Bobot)))`)*.
-       * **Hasil:** Risiko gabungan portofolio adalah **{port_std_periode:.2%}** per {periode_hitung.lower()}, atau **{port_std_tahunan:.2%}** per tahun.
-
-    3. **Sharpe Ratio:**
-       * **Rumus:** $\\text{{Sharpe Ratio}} = \\frac{{\\text{{Expected Return Tahunan}}}}{{\\text{{Risiko Tahunan}}}}$
-       * **Penjelasan:** Mengukur efisiensi imbal hasil terhadap risiko. Nilai di atas **1.0** menunjukkan imbal hasil yang dihasilkan sangat sepadan dengan risiko yang ditanggung.
+    2. **💡 Saran Pengambilan Bobot Saham (Decision Support):**
+       * Berdasarkan simulasi matematis (*Monte Carlo Optimization*) dari data historis **{rentang_waktu}** terakhir, sistem memberikan rekomendasi alokasi bobot optimal agar portofolio mencapai tingkat efisiensi (*Sharpe Ratio*) tertinggi:
+         {'<br>'.join(saran_teks)}
+       * **Tips Pengambilan Keputusan:** Anda dapat memilih opsi **"Saran Otomatis (Optimal Sharpe)"** di menu samping kiri untuk langsung menerapkan komposisi bobot terbaik ini ke dalam sistem penilaian portofolio Anda!
     """)
 
 # --- GRAFIK KINERJA ---
@@ -282,7 +272,7 @@ if port_std_tahunan < 0.15:
         "**Rekomendasi Keputusan:** Layak Dipertimbangkan untuk Investasi Syariah Jangka Panjang.\n\n"
         f"**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII "
         f"(**{daftar_nama_pendek}**), portofolio ini memiliki tingkat volatilitas tahunan yang sangat terkendali sebesar **{port_std_tahunan:.2%}** "
-        f"dengan potensi return tahunan **{port_return_tahunan:.2%}**. Komposisi bobot saat ini efektif meredam gejolak pasar dan cocok untuk menjaga keamanan modal."
+        f"dengan potensi return tahunan **{port_return_tahunan:.2%}**. Alokasi bobot saat ini efektif meredam gejolak pasar."
     )
 elif port_std_tahunan <= 0.25:
     kategori_risiko = "Sedang (Moderat) ⚖️"
@@ -290,7 +280,7 @@ elif port_std_tahunan <= 0.25:
         "**Rekomendasi Keputusan:** Seimbang & Layak Dieksekusi.\n\n"
         f"**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII "
         f"(**{daftar_nama_pendek}**), portofolio berada pada titik keseimbangan optimal antara potensi keuntungan tahunan (**{port_return_tahunan:.2%}**) "
-        f"dan tingkat risiko (**{port_std_tahunan:.2%}**). Nilai *Sharpe Ratio* sebesar **{sharpe_ratio:.2f}** menunjukkan efisiensi diversifikasi yang baik untuk profil investor moderat."
+        f"dan tingkat risiko (**{port_std_tahunan:.2%}**). Nilai *Sharpe Ratio* sebesar **{sharpe_ratio:.2f}** menunjukkan efisiensi yang baik."
     )
 else:
     kategori_risiko = "Tinggi (Agresif) 🚀"
@@ -298,7 +288,7 @@ else:
         "**Rekomendasi Keputusan:** Perlu Pengawasan Ketat / Khusus Investor Agresif.\n\n"
         f"**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII "
         f"(**{daftar_nama_pendek}**), portofolio ini mencatatkan fluktuasi harga tahunan yang tinggi (**{port_std_tahunan:.2%}**). "
-        "Meskipun menawarkan peluang *return* yang besar, keputusan investasi ini hanya disarankan bagi investor yang siap menghadapi volatilitas pasar jangka pendek."
+        "Keputusan investasi ini disarankan bagi investor yang siap menghadapi volatilitas jangka pendek."
     )
 
 st.info(f"**Profil Risiko Portofolio JII:** {kategori_risiko}")
