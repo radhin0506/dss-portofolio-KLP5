@@ -2,141 +2,214 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import yfinance as yf
 
-# Konfigurasi halaman web
-st.set_page_config(page_title="DSS Portofolio Saham BRIS, CTRA, TLKM", layout="wide")
+# --- KONFIGURASI HALAMAN ---
+st.set_page_config(page_title="DSS Portofolio Saham Real-Time", layout="wide")
+st.title("📈 Sistem Pendukung Keputusan (DSS) Portofolio Saham BEI")
+st.markdown("Aplikasi analisis portofolio saham secara *real-time* langsung dari data pasar keuangan.")
 
-st.title("📈 Sistem Pendukung Keputusan (DSS) Portofolio Saham")
-st.markdown("Aplikasi berbasis Python & Streamlit untuk Analisis Return, Risiko, Kovarians, Korelasi, dan Portofolio Gabungan.")
+# --- 1. SIDEBAR: PENGATURAN SAHAM & PERIODE ---
+st.sidebar.header("⚙️ Pengaturan Data & Analisis")
 
-# Path file Excel
-file_path = "Data_Harga_Close_Mingguan_BRIS_CTRA_TLKM.xlsx"
+# Daftar pilihan saham IDX (Bursa Efek Indonesia) dengan akhiran .JK
+# Pengguna bisa mengetik atau memilih kode saham tambahan
+saham_default = ["BRIS.JK", "CTRA.JK", "TLKM.JK", "BBCA.JK", "BBRI.JK"]
+saham_terpilih = st.sidebar.multiselect(
+    "1. Pilih Kode Saham (Emiten BEI):",
+    options=saham_default,
+    default=["BRIS.JK", "CTRA.JK", "TLKM.JK"]
+)
 
-@st.cache_data
-def load_excel_data():
-    xls = pd.ExcelFile(file_path)
-    sheets = xls.sheet_names
-    data_dict = {sheet: pd.read_excel(file_path, sheet_name=sheet) for sheet in sheets}
-    return xls.sheet_names, data_dict
+if len(saham_terpilih) < 2:
+    st.warning("⚠️ Silakan pilih minimal **2 saham** di menu sebelah kiri untuk membentuk portofolio.")
+    st.stop()
 
-try:
-    sheet_names, data_dict = load_excel_data()
+# Rentang waktu data historis
+rentang_waktu = st.sidebar.selectbox(
+    "2. Rentang Data Historis:",
+    options=["1 Tahun", "2 Tahun", "3 Tahun", "5 Tahun"],
+    index=1 # Default 2 tahun
+)
 
-    # Sidebar Menu
-    st.sidebar.header("📁 Menu Navigasi Sheet")
-    selected_sheet = st.sidebar.selectbox("Pilih Tampilan Sheet:", sheet_names)
+mapping_periode = {"1 Tahun": "1y", "2 Tahun": "2y", "3 Tahun": "3y", "5 Tahun": "5y"}
+periode_yf = mapping_periode[rentang_waktu]
 
-    st.subheader(f"📄 Data dari Sheet: {selected_sheet}")
-    df_selected = data_dict[selected_sheet]
-    st.dataframe(df_selected, use_container_width=True)
+# Pilihan Periode Perhitungan (Harian/Mingguan/Bulanan/Tahunan)
+periode_hitung = st.sidebar.selectbox(
+    "3. Pilih Frekuensi Perhitungan:",
+    options=["Harian", "Mingguan", "Bulanan", "Tahunan"]
+)
 
-    # Visualisasi Tambahan untuk Harga Close Mingguan
-    if selected_sheet == 'Harga Close Mingguan':
-        st.markdown("---")
-        st.subheader("📊 Grafik Pergerakan Harga Close Mingguan")
-        fig, ax = plt.subplots(figsize=(10, 4))
-        for col in ['Close BRIS', 'Close CTRA', 'Close TLKM']:
-            if col in df_selected.columns:
-                ax.plot(df_selected['Tanggal'], df_selected[col], label=col, marker='o', markersize=3)
-        ax.set_xlabel("Tanggal")
-        ax.set_ylabel("Harga Close (Rp)")
-        ax.legend()
-        ax.grid(True)
-        st.pyplot(fig)
+# C. Pengaturan Bobot Portofolio
+st.sidebar.subheader("4. Atur Bobot Investasi (%)")
+bobot_input = []
+for saham in saham_terpilih:
+    # Hilangkan '.JK' untuk tampilan label slider agar bersih
+    nama_bersih = saham.replace(".JK", "")
+    nilai = st.sidebar.slider(f"Bobot {nama_bersih} (%)", min_value=0, max_value=100, value=int(100/len(saham_terpilih)))
+    bobot_input.append(nilai)
 
-    # ==========================================
-    # SIMULASI & PERHITUNGAN PORTOFOLIO GABUNGAN
-    # ==========================================
-    st.sidebar.markdown("---")
-    st.sidebar.header("⚙️ Simulasi Bobot Portofolio")
-    st.sidebar.info("Sesuaikan bobot ketiga saham (total harus 100% / 1.0)")
-    
-    w_bris = st.sidebar.slider("Bobot BRIS", 0.0, 1.0, 0.40, 0.05)
-    w_ctra = st.sidebar.slider("Bobot CTRA", 0.0, 1.0, 0.30, 0.05)
-    w_tlkm = st.sidebar.slider("Bobot TLKM", 0.0, 1.0, 0.30, 0.05)
+total_bobot = sum(bobot_input)
+if total_bobot == 0:
+    st.error("Total bobot tidak boleh 0%!")
+    st.stop()
 
-    weights = np.array([w_bris, w_ctra, w_tlkm])
-    total_bobot = weights.sum()
+weights = np.array(bobot_input) / total_bobot
+st.sidebar.info(f"Total Bobot Ternormalisasi: **100%**")
 
-    st.markdown("---")
-    st.subheader("⚖️ Hasil Simulasi Kinerja Portofolio Gabungan")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Bobot BRIS", f"{w_bris*100:.1f}%")
-    col2.metric("Bobot CTRA", f"{w_ctra*100:.1f}%")
-    col3.metric("Bobot TLKM", f"{w_tlkm*100:.1f}%")
-    col4.metric("Total Bobot", f"{total_bobot*100:.1f}%", delta="Valid" if abs(total_bobot - 1.0) < 1e-4 else "⚠️ Harus 100%")
 
-    # Jika sheet Return / Analisis tersedia di Excel, kita tarik untuk simulasi dinamis
-    # Asumsi: Kita hitung dari sheet Return atau data Close jika ada
-    if 'Return Saham' in data_dict:
-        df_ret = data_dict['Return Saham']
-    elif 'Harga Close Mingguan' in data_dict:
-        df_close = data_dict['Harga Close Mingguan']
-        # Hitung return mingguan otomatis jika belum ada di sheet terpisah
-        cols = [c for c in ['Close BRIS', 'Close CTRA', 'Close TLKM'] if c in df_close.columns]
-        if len(cols) == 3:
-            df_ret = df_close[cols].pct_change().dropna()
-        else:
-            df_ret = None
-    else:
-        df_ret = None
+# --- 2. MENGAMBIL DATA REAL-TIME DARI WEB (YFINANCE) ---
+@st.cache_data(ttl=3600) # Cache data selama 1 jam agar aplikasi cepat
+def ambil_data_saham(tickers, period):
+    data = yf.download(tickers, period=period, progress=False)["Close"]
+    # Jika hanya memilih 1 saham, ubah bentuk Series menjadi DataFrame
+    if isinstance(data, pd.Series):
+        data = data.to_frame()
+    return data.dropna()
 
-    if df_ret is not None and abs(total_bobot - 1.0) < 1e-4:
-        # Ambil kolom return numerik saja
-        numeric_ret = df_ret.select_dtypes(include=[np.number]).iloc[:, :3]
-        
-        if numeric_ret.shape[1] == 3:
-            # Expected Return rata-rata per periode
-            mean_returns = numeric_ret.mean().values
-            # Kovarians antar saham
-            cov_matrix = numeric_ret.cov().values
+with st.spinner("Sedang mengambil data real-time dari bursa... Mohon tunggu sebentar."):
+    df_raw = ambil_data_saham(saham_terpilih, periode_yf)
 
-            # Perhitungan Portofolio Gabungan
-            portfolio_return = np.dot(weights, mean_returns)
-            portfolio_variance = np.dot(weights.T, np.dot(cov_matrix, weights))
-            portfolio_std = np.sqrt(portfolio_variance)
+if df_raw.empty:
+    st.error("Gagal menarik data saham. Periksa kembali koneksi internet atau kode saham yang dipilih.")
+    st.stop()
 
-            st.success("✅ Perhitungan portofolio gabungan berhasil diperbarui berdasarkan bobot slider Anda!")
-            
-            res_col1, res_col2, res_col3 = st.columns(3)
-            res_col1.metric("Expected Return Portofolio", f"{portfolio_return*100:.4f}% per minggu")
-            res_col2.metric("Risiko Portofolio (Std Dev)", f"{portfolio_std*100:.4f}%")
-            res_col3.metric("Varians Portofolio", f"{portfolio_variance:.6f}")
-        else:
-            st.warning("⚠️ Kolom data return untuk 3 saham tidak terdeteksi dengan pas di Excel.")
-    elif abs(total_bobot - 1.0) >= 1e-4:
-        st.warning("⚠️ Total bobot portofolio Anda belum pas 100% (1.0). Harap sesuaikan slider di sidebar.")
 
-except Exception as e:
-    st.error(f"Terjadi kesalahan: {e}")
-    st.info("Pastikan file Excel Anda berada di folder yang sama dengan file `app.py` di VS Code.")
-    # --- BAGIAN ANALISIS & DESKRIPSI KEPUTUSAN ---
-st.subheader("💡 Deskripsi & Rekomendasi Keputusan")
+# --- 3. PENYESUAIAN PERIODE (RESAMPLING) ---
+aturan_periode = {
+    "Harian": {"rule": "D", "faktor": 252, "ket": "252 hari bursa/tahun"},
+    "Mingguan": {"rule": "W", "faktor": 52, "ket": "52 minggu/tahun"},
+    "Bulanan": {"rule": "ME", "faktor": 12, "ket": "12 bulan/tahun"},
+    "Tahunan": {"rule": "YE", "faktor": 1, "ket": "1 tahun penuh"}
+}
 
-# Contoh logika otomatis berdasarkan hasil perhitungan portofolio (misalnya standar deviasi/risiko)
-if portfolio_std < 0.15:
-    kategori_risiko = "Rendah (Konservatif)"
-    rekomendasi_teks = (
-        "Portofolio ini memiliki tingkat fluktuasi yang relatif stabil. "
-        "Cocok untuk investor yang menghindari risiko tinggi, meskipun potensi "
-        "keuntungan (*return*) mungkin lebih moderat."
+rule_terpilih = aturan_periode[periode_hitung]["rule"]
+faktor_waktu = aturan_periode[periode_hitung]["faktor"]
+ket_faktor = aturan_periode[periode_hitung]["ket"]
+
+if periode_hitung == "Harian":
+    df_harga = df_raw.dropna()
+else:
+    df_harga = df_raw.resample(rule_terpilih).last().dropna()
+
+
+# =====================================================================
+# TAMPILAN SHEET & PENJELASAN DI WEB
+# =====================================================================
+
+# --- SHEET 1: DATA HARGA REAL ---
+st.header(f"1️⃣ Sheet Data Harga Real-Time ({periode_hitung})")
+st.dataframe(df_harga.tail(10), use_container_width=True)
+
+with st.expander("📘 Penjelasan Perhitungan Sheet 1 (Data Harga Pasar)"):
+    st.markdown(f"""
+    * **Sumber Data:** Diambil secara otomatis langsung dari pasar keuangan (*Yahoo Finance API / Data BEI*).
+    * **Periode Dipilih:** Menggunakan rentang **{rentang_waktu}** dengan frekuensi penarikan **{periode_hitung}** (mengambil harga penutupan terakhir pada setiap akhir periode).
+    * **Keunggulan:** Data selalu akurat sesuai kondisi pasar terkini tanpa perlu memperbarui file Excel secara manual.
+    """)
+
+# --- SHEET 2: PERHITUNGAN RETURN ---
+st.header(f"2️⃣ Sheet Perhitungan Return ({periode_hitung})")
+df_return = df_harga.pct_change().dropna()
+st.dataframe(df_return.tail(10).style.format("{:.2%}"), use_container_width=True)
+
+with st.expander("📘 Penjelasan Perhitungan Sheet 2 (Return / Imbal Hasil)"):
+    st.markdown(f"""
+    * **Rumus Dasar:** $\\text{{Return}}_t = \\frac{{\\text{{Harga}}_t - \\text{{Harga}}_{{t-1}}}}{{\\text{{Harga}}_{{t-1}}}}$
+    * Menunjukkan besarnya persentase kenaikan atau penurunan harga antar periode **{periode_hitung.lower()}**.
+    """)
+
+# --- SHEET 3: STATISTIK INDIVIDUAL ---
+st.header("3️⃣ Sheet Statistik & Risiko Individual Saham")
+mean_return = df_return.mean()
+std_return = df_return.std()
+var_return = df_return.var()
+
+df_statistik = pd.DataFrame({
+    f"Rata-rata Return ({periode_hitung})": mean_return,
+    f"Standar Deviasi / Risiko ({periode_hitung})": std_return,
+    f"Varians ({periode_hitung})": var_return,
+    "Ekspektasi Return Tahunan (Disetahunkan)": mean_return * faktor_waktu,
+    "Risiko Tahunan (Disetahunkan)": std_return * np.sqrt(faktor_waktu)
+}, index=saham_terpilih)
+
+st.dataframe(df_statistik.style.format("{:.4f}"), use_container_width=True)
+
+with st.expander("📘 Penjelasan Perhitungan Sheet 3 (Statistik & Annualisasi)"):
+    st.markdown(f"""
+    * **Standar Deviasi:** Mengukur tingkat volatilitas/risiko saham secara statistik.
+    * **Penyetaraan Tahunan (*Annualization*):** Risiko dan return dikalikan dengan faktor penyesuaian waktu **{faktor_waktu}** ({ket_faktor}) agar setara dalam skala 1 tahun penuh.
+    """)
+
+# --- SHEET 4: MATRIKS KOVARIANS ---
+st.header("4️⃣ Sheet Matriks Kovarians (Covariance Matrix)")
+cov_matrix = df_return.cov()
+st.dataframe(cov_matrix.style.format("{:.6f}"), use_container_width=True)
+
+with st.expander("📘 Penjelasan Perhitungan Sheet 4 (Matriks Kovarians)"):
+    st.markdown("""
+    * **Kovarians:** Menggambarkan arah pergerakan bersama antar emiten saham yang dipilih untuk mengukur efektivitas diversifikasi risiko portofolio.
+    """)
+
+# --- SHEET 5: EVALUASI & Keputusan ---
+st.header("5️⃣ Sheet Evaluasi Portofolio & Rekomendasi Keputusan")
+
+port_return_periode = np.sum(mean_return * weights)
+port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+
+port_return_tahunan = port_return_periode * faktor_waktu
+port_std_tahunan = port_std_periode * np.sqrt(faktor_waktu)
+sharpe_ratio = port_return_tahunan / port_std_tahunan if port_std_tahunan != 0 else 0
+
+col1, col2, col3 = st.columns(3)
+col1.metric(f"Expected Return (Tahunan)", f"{port_return_tahunan:.2%}")
+col2.metric(f"Risiko Portofolio (Tahunan)", f"{port_std_tahunan:.2%}")
+col3.metric("Sharpe Ratio", f"{sharpe_ratio:.2f}")
+
+with st.expander("📘 Penjelasan Perhitungan Sheet 5 (Portofolio Gabungan)"):
+    st.markdown("""
+    * Menggabungkan ekspektasi return, bobot, dan risiko multiaset menggunakan aljabar matriks portofolio modern (Modern Portfolio Theory).
+    """)
+
+# Grafik Pergerakan Harga Ternormalisasi
+st.subheader("📊 Grafik Kinerja Harga Saham Real-Time (Base = 100)")
+df_norm = (df_harga / df_harga.iloc[0]) * 100
+fig, ax = plt.subplots(figsize=(10, 4))
+for saham in saham_terpilih:
+    ax.plot(df_norm.index, df_norm[saham], label=saham.replace(".JK", ""))
+ax.set_ylabel("Indeks Pertumbuhan")
+ax.set_xlabel("Tanggal")
+ax.legend()
+ax.grid(True, linestyle="--", alpha=0.5)
+st.pyplot(fig)
+
+# --- DESKRIPSI KEPUTUSAN OTOMATIS ---
+st.subheader("💡 Kesimpulan & Rekomendasi Keputusan")
+
+if port_std_tahunan < 0.15:
+    kategori_risiko = "Rendah (Konservatif) 🛡️"
+    deskripsi_keputusan = (
+        "**Rekomendasi Keputusan:** Layak Dipertimbangkan untuk Jangka Panjang.\n\n"
+        f"**Analisis Data Pasar:** Berdasarkan data historis real-time dengan frekuensi **{periode_hitung.lower()}**, "
+        f"kombinasi saham terpilih mencatatkan volatilitas tahunan sebesar **{port_std_tahunan:.2%}**. "
+        "Portofolio ini cenderung stabil dan aman terhadap gejolak pasar ekstrem."
     )
-elif portfolio_std <= 0.25:
-    kategori_risiko = "Sedang (Moderat)"
-    rekomendasi_teks = (
-        "Portofolio berada pada tingkat risiko menengah dengan keseimbangan "
-        "antara pertumbuhan modal dan kestabilan. Layak dipertimbangkan untuk "
-        "jangka menengah."
+elif port_std_tahunan <= 0.25:
+    kategori_risiko = "Sedang (Moderat) ⚖️"
+    deskripsi_keputusan = (
+        "**Rekomendasi Keputusan:** Seimbang & Layak Dieksekusi.\n\n"
+        f"**Analisis Data Pasar:** Berdasarkan data pasar terkini, portofolio menunjukkan keseimbangan yang sehat "
+        f"antara potensi return tahunan **{port_return_tahunan:.2%}** dan risiko **{port_std_tahunan:.2%}**. "
+        "Sangat ideal untuk investor dengan profil risiko menengah."
     )
 else:
-    kategori_risiko = "Tinggi (Agresif)"
-    rekomendasi_teks = (
-        "Portofolio memiliki potensi keuntungan yang tinggi namun disertai "
-        "dengan tingkat risiko fluktuasi harga yang sangat besar. "
-        "Disarankan untuk investor berpengalaman."
+    kategori_risiko = "Tinggi (Agresif) 🚀"
+    deskripsi_keputusan = (
+        "**Rekomendasi Keputusan:** Perlu Pengawasan Ketat / Profil Agresif.\n\n"
+        f"**Analisis Data Pasar:** Portofolio ini memiliki fluktuasi harga tahunan yang tinggi (**{port_std_tahunan:.2%}**). "
+        "Cocok bagi investor agresif yang siap mengambil risiko tinggi demi memburu potensi keuntungan maksimal."
     )
 
-# Menampilkan hasil keputusan ke dalam kotak informasi di web Streamlit
-st.info(f"**Kategori Risiko Portofolio:** {kategori_risiko}")
-st.write(rekomendasi_teks)
+st.info(f"**Profil Risiko Pasar:** {kategori_risiko}")
+st.markdown(deskripsi_keputusan)
