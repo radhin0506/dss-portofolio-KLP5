@@ -99,7 +99,6 @@ if len(saham_terpilih) < 2:
     st.warning("⚠️ Silakan pilih minimal **2 saham JII** di menu sebelah kiri untuk membentuk portofolio syariah.")
     st.stop()
 
-# Rentang waktu data historis
 rentang_waktu = st.sidebar.selectbox(
     "2. Rentang Data Historis:",
     options=["1 Tahun", "2 Tahun", "3 Tahun", "5 Tahun"],
@@ -108,14 +107,12 @@ rentang_waktu = st.sidebar.selectbox(
 mapping_tahun = {"1 Tahun": 1, "2 Tahun": 2, "3 Tahun": 3, "5 Tahun": 5}
 jumlah_tahun = mapping_tahun[rentang_waktu]
 
-# Pilihan Frekuensi Perhitungan
 periode_hitung = st.sidebar.selectbox(
     "3. Pilih Frekuensi Perhitungan:",
     options=["Harian", "Mingguan", "Bulanan", "Tahunan"]
 )
 
 periode_yf = f"{jumlah_tahun}y"
-
 
 # --- 3. MENGAMBIL DATA REAL-TIME ---
 @st.cache_data(ttl=3600)
@@ -140,7 +137,6 @@ if df_raw.empty:
 df_raw = df_raw[saham_terpilih]
 df_raw.index = pd.to_datetime(df_raw.index)
 
-# ATURAN PERIODE RESAMPLING
 aturan_periode = {
     "Harian": {"faktor": 252, "ket": "Hari bursa aktif"},
     "Mingguan": {"rule": "W-FRI", "faktor": 52, "ket": "Setiap akhir minggu (Jumat)"},
@@ -159,7 +155,6 @@ else:
 df_harga_display = df_harga.copy()
 df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
 
-# Hitung Return (Menggunakan fillna(0) agar baris awal tidak terhapus dan data tampil penuh)
 df_return = df_harga_display.pct_change().fillna(0)
 mean_return = df_return.mean()
 cov_matrix = df_return.cov()
@@ -210,40 +205,51 @@ weights = np.array(bobot_input) / total_bobot
 ringkasan_bobot = ", ".join([f"{s.replace('.JK', '')}: {w*100:.1f}%" for s, w in zip(saham_terpilih, weights)])
 st.sidebar.info(f"**Komposisi Bobot Aktif (Total 100%):**\n\n{ringkasan_bobot}")
 
-# --- PALET WARNA PASTEL COKLAT ---
 WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25", "#E6CCB2", "#D4A373"]
 
 
 # =====================================================================
-# TAMPILAN SHEET, PENJELASAN & KESIMPULAN
+# TAMPILAN SHEET, PENJELASAN, RUMUS & CONTOH ANGKA RIIL
 # =====================================================================
 
 # --- SHEET 1: DATA HARGA ---
 st.header(f"1️⃣ Sheet Data Harga Penutupan Saham JII ({periode_hitung})")
 st.dataframe(df_harga_display.style.format("Rp {:,.0f}"), use_container_width=True)
 
-with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 1 (Data Harga Historis)", expanded=True):
-    tgl_awal_str = df_harga_display.index.min().strftime('%d %b %Y')
-    tgl_akhir_str = df_harga_display.index.max().strftime('%d %b %Y')
+# Ambil contoh angka baris terakhir untuk penjelasan riil
+contoh_saham_satu = df_harga_display.columns[0]
+harga_baris_akhir = df_harga_display[contoh_saham_satu].iloc[-1]
+harga_baris_sebelumnya = df_harga_display[contoh_saham_satu].iloc[-2]
+
+with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 1 (Data Harga)", expanded=True):
     st.markdown(f"""
-    * **Cakupan Emiten:** Konstituen resmi **Jakarta Islamic Index (JII)** termasuk **Ciputra Development (CTRA)**.
-    * **Rentang & Frekuensi Data:** Menampilkan harga penutupan rupiah murni selama **{rentang_waktu}** (dari tanggal **{tgl_awal_str}** s.d. **{tgl_akhir_str}**) dengan frekuensi **{periode_hitung.lower()}** total **{len(df_harga_display)} baris data**.
-    * **📌 Kesimpulan Sheet 1:** Data harga historis tersaji akurat dalam nominal rupiah asli sesuai penutupan bursa pada setiap titik waktu yang dipilih.
+    * **Konsep & Rumus:** Sheet ini menarik data harga penutupan (*Close Price*) riil harian, mingguan, bulanan, atau tahunan dari API `yfinance` berdasarkan konstituen Jakarta Islamic Index (JII).
+    * **Padanan Excel:** Menggunakan fungsi referensi data langsung dari tabel database bursa atau `VLOOKUP` / `INDEX-MATCH`.
+    * **Contoh Angka Riil pada Portofolio Anda:**
+      * Harga penutupan saham **{contoh_saham_satu}** pada periode sebelumnya adalah **Rp {harga_baris_sebelumnya:,.0f}**.
+      * Harga penutupan pada periode terakhir tercatat sebesar **Rp {harga_baris_akhir:,.0f}**.
+    * **📌 Kesimpulan Sheet 1:** Seluruh data historis harga saham tersaji secara utuh dan akurat dalam satuan mata uang Rupiah.
     """)
 
 # --- SHEET 2: RETURN ---
 st.header(f"2️⃣ Sheet Perhitungan Return / Imbal Hasil ({periode_hitung})")
 st.dataframe(df_return.style.format("{:.2%}"), use_container_width=True)
 
-with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 2 (Return Saham)", expanded=True):
-    st.markdown("""
-    * **Rumus:** $R_t = \\frac{P_t - P_{t-1}}{P_{t-1}}$ (Persentase perubahan harga antar periode).
-    * **📌 Kesimpulan Sheet 2:** Nilai return positif menunjukkan adanya kenaikan harga saham pada periode tersebut, sedangkan nilai negatif menunjukkan terjadinya koreksi/penurunan harga. Seluruh baris data ditampilkan secara penuh.
+contoh_return_val = df_return[contoh_saham_satu].iloc[-1]
+with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 2 (Return)", expanded=True):
+    st.markdown(f"""
+    * **Rumus Matematika:** 
+      $$R_t = \\frac{P_t - P_{t-1}}{P_{t-1}}$$
+      *(Dimana $P_t$ adalah harga saat ini dan $P_{t-1}$ adalah harga periode sebelumnya).*
+    * **Padanan Rumus Excel:** `=(B3 - B2) / B2`
+    * **Contoh Angka Riil pada Portofolio Anda:**
+      * Perhitungan untuk saham **{contoh_saham_satu}**: 
+        $$\\frac{{{harga_baris_akhir:,.0f} - {harga_baris_sebelumnya:,.0f}}}{{{harga_baris_sebelumnya:,.0f}}} = {contoh_return_val:.4\%}$$
+    * **📌 Kesimpulan Sheet 2:** Menunjukkan persentase keuntungan atau kerugian pada setiap titik waktu dengan cakupan data yang penuh.
     """)
 
 # --- SHEET 3: STATISTIK INDIVIDUAL ---
 st.header("3️⃣ Sheet Statistik & Risiko Individual Saham")
-# Statistik dihitung dengan mengabaikan nilai baris awal (0) agar rata-rata akurat
 df_return_stats = df_harga_display.pct_change().dropna()
 std_return = df_return_stats.std()
 var_return = df_return_stats.var()
@@ -259,12 +265,26 @@ df_statistik = pd.DataFrame({
 
 st.dataframe(df_statistik.style.format("{:.4f}"), use_container_width=True)
 
-with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 3 (Statistik & Annualisasi)", expanded=True):
-    saham_risiko_tinggi = df_statistik["Risiko / Volatilitas (Tahunan)"].idxmax()
-    saham_return_tinggi = df_statistik["Expected Return (Tahunan)"].idxmax()
+contoh_mean = mean_return_stats[contoh_saham_satu]
+contoh_std = std_return[contoh_saham_satu]
+contoh_ann_return = contoh_mean * faktor_waktu
+contoh_ann_std = contoh_std * np.sqrt(faktor_waktu)
+
+with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 3 (Statistik & Risiko)", expanded=True):
     st.markdown(f"""
-    * **Kalkulasi:** Mengukur rata-rata return dan tingkat risiko (*Standard Deviation*) masing-masing saham JII yang disetarakan dalam skala 1 tahun (dikalikan faktor **{faktor_waktu}**).
-    * **📌 Kesimpulan Sheet 3:** Emiten **{saham_return_tinggi}** mencatatkan potensi *return* tahunan tertinggi, sedangkan **{saham_risiko_tinggi}** memiliki tingkat fluktuasi risiko paling agresif.
+    * **Rumus Matematika:**
+      * **Rata-rata Return ($\\mu$):** `AVERAGE(R_1, R_2, ... , R_n)`
+      * **Varians ($\\sigma^2$):** `VAR.S(R_1, R_2, ... , R_n)`
+      * **Standar Deviasi / Risiko ($\\sigma$):** `STDEV.S(R_1, R_2, ... , R_n)`
+      * **Annualisasi Return:** $\\mu \\times \\text{{Faktor Waktu}} (\\text{{Faktor}} = {faktor_waktu})$
+      * **Annualisasi Risiko:** $\\sigma \\times \\sqrt{{\\text{{Faktor Waktu}}}}$
+    * **Padanan Rumus Excel:** `=AVERAGE( range )`, `=STDEV.S( range )`
+    * **Contoh Angka Riil pada Saham {contoh_saham_satu}:**
+      * Mean Return per periode = `{contoh_mean:.4f}`
+      * Risiko (Standar Deviasi) per periode = `{contoh_std:.4f}`
+      * **Expected Return Tahunan:** `{contoh_mean:.4f} \\times {faktor_waktu} = {contoh_ann_return:.2%}`
+      * **Risiko Tahunan:** `{contoh_std:.4f} \\times \\sqrt{{{faktor_waktu}}} = {contoh_ann_std:.2%}`
+    * **📌 Kesimpulan Sheet 3:** Memberikan gambaran tingkat pengembalian tahunan serta besaran volatilitas risiko dari masing-masing emiten JII.
     """)
 
 # --- SHEET 4: MATRIKS KOVARIANS ---
@@ -272,10 +292,13 @@ st.header("4️⃣ Sheet Matriks Kovarians (Covariance Matrix)")
 cov_matrix_stats = df_return_stats.cov()
 st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
 
-with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 4 (Matriks Kovarians)", expanded=True):
-    st.markdown("""
-    * **Kalkulasi:** Mengukur arah pergerakan bersama antar saham syariah untuk memperhitungkan efek diversifikasi.
-    * **📌 Kesimpulan Sheet 4:** Nilai kovarians yang negatif atau mendekati nol mengindikasikan bahwa pasangan saham tersebut bergerak tidak searah, sehingga sangat efektif untuk menekan risiko gabungan portofolio.
+with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 4 (Matriks Kovarians)", expanded=True):
+    st.markdown(f"""
+    * **Rumus Matematika:** 
+      $$\\text{{Cov}}(X, Y) = \\frac{{\\sum (X_i - \\bar{{X}})(Y_i - \\bar{{Y}})}}{{n - 1}}$$
+    * **Padanan Rumus Excel:** `=COVARIANCE.S( range_saham_X , range_saham_Y )`
+    * **Contoh Angka Riil:** Matriks di atas menghitung tingkat hubungan arah pergerakan naik/turun antar seluruh pasang emiten pilihan Anda. Nilai negatif menunjukkan korelasi berlawanan arah yang sangat baik untuk diversifikasi penekanan risiko portofolio.
+    * **📌 Kesimpulan Sheet 4:** Matriks kovarians ini menjadi dasar utama dalam kalkulasi risiko gabungan portofolio pada sheet berikutnya.
     """)
 
 # --- SHEET 5: EVALUASI & SARAN PENGAMBILAN BOBOT ---
@@ -292,17 +315,22 @@ col1.metric("Expected Return Tahunan", f"{port_return_tahunan:.2%}")
 col2.metric("Risiko Portofolio Tahunan", f"{port_std_tahunan:.2%}")
 col3.metric("Sharpe Ratio (Efisiensi)", f"{sharpe_ratio:.2f}")
 
-with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 5 (Portofolio Gabungan)", expanded=True):
-    saran_teks = [f"- **{s.replace('.JK', '')}**: disarankan bobot sekitar **{bobot_terbaik[i]*100:.1f}%**" for i, s in enumerate(saham_terpilih)]
+with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 5 (Evaluasi Portofolio & Sharpe)", expanded=True):
+    saran_teks = [f"- **{s.replace('.JK', '')}**: bobot optimal **{bobot_terbaik[i]*100:.1f}%**" for i, s in enumerate(saham_terpilih)]
     
     st.markdown(f"""
-    1. **Evaluasi Portofolio:**
-       * **Expected Return:** **{port_return_tahunan:.2%}** / tahun.
-       * **Risiko Portofolio:** **{port_std_tahunan:.2%}** / tahun.
-       * **Sharpe Ratio:** **{sharpe_ratio:.2f}**.
-    2. **Saran Alokasi Bobot Optimal:**
-       {'<br>'.join(saran_teks)}
-    * **📌 Kesimpulan Sheet 5:** Kombinasi bobot aktif saat ini menghasilkan tingkat efisiensi portofolio (*Sharpe Ratio*) sebesar **{sharpe_ratio:.2f}**.
+    * **Rumus Matematika Portofolio:**
+      * **Expected Return Portofolio ($R_p$):** $\\sum (w_i \\times \\text{{Return}\_i})$
+      * **Risiko Portofolio ($\\sigma_p$):** $\\sqrt{{W^T \\cdot \\text{{Cov}} \\cdot W}}$ *(Perkalian matriks bobot dengan matriks kovarians)*
+      * **Sharpe Ratio (Rasio Efisiensi):** $\\frac{{R_p - R_f}}{{\\sigma_p}}$ *(Mengukur excess return per unit risiko)*
+    * **Padanan Rumus Excel:** Menggunakan `=SUMPRODUCT( bobot_range , return_range )` untuk return, dan perkalian matriks `=MMULT(...)` untuk risiko.
+    * **Contoh Angka Riil Portofolio Anda:**
+      * **Expected Return Tahunan:** **{port_return_tahunan:.2%}**
+      * **Risiko Tahunan:** **{port_std_tahunan:.2%}**
+      * **Sharpe Ratio:** **{sharpe_ratio:.2f}**
+    * **Saran Alokasi Bobot Optimal (Sharpe Ratio Maksimal):**
+      {'<br>'.join(saran_teks)}
+    * **📌 Kesimpulan Sheet 5:** Kombinasi bobot saat ini menghasilkan rasio efisiensi sebesar **{sharpe_ratio:.2f}**, yang menunjukkan tingkat keuntungan optimal yang diperoleh per unit risiko yang ditanggung.
     """)
 
 # --- GRAFIK KINERJA DENGAN WARNA PASTEL COKLAT ---
@@ -322,7 +350,7 @@ ax.legend(loc="upper left")
 ax.grid(True, linestyle="--", alpha=0.5)
 st.pyplot(fig)
 
-# --- 6. DESKRIPSI KEPUTUSAN OTOMATIS ---
+# --- 6. KESIMPULAN & REKOMENDASI KEPUTUSAN OTOMATIS ---
 st.subheader("💡 Kesimpulan & Rekomendasi Keputusan Portofolio Syariah")
 
 daftar_nama_pendek = ", ".join(df_harga_display.columns)
@@ -349,5 +377,4 @@ else:
 **Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII (**{daftar_nama_pendek}**), portofolio ini mencatatkan fluktuasi harga tahunan yang tinggi (**{port_std_tahunan:.2%}**). Disarankan bagi investor yang siap menghadapi volatilitas pasar jangka pendek.
 """
 
-st.info(f"**Profil Risiko Portofolio JII:** {kategori_risiko}")
-st.markdown(deskripsi_keputusan)
+st.info(f"**Profil Risiko
