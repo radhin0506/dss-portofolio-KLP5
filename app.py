@@ -228,16 +228,31 @@ WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25"
 
 
 # =====================================================================
-# TAMPILAN SHEET (MURNI TABEL TANPA TAMBAHAN TEKS DI SHEET 1 - 4)
+# TAMPILAN SHEET LENGKAP DENGAN PENJELASAN SEDERHANA
 # =====================================================================
 
 # --- SHEET 1: DATA HARGA ---
 st.header(f"1️⃣ Sheet Data Harga Penutupan Saham JII ({periode_hitung})")
 st.dataframe(df_harga_display.style.format("Rp {:,.0f}"), use_container_width=True)
 
+with st.expander("💡 Penjelasan Sederhana - Sheet 1 (Data Harga)", expanded=True):
+    st.markdown("""
+    * **Isi Tabel:** Menampilkan daftar harga saham penutupan (*Close*) harian, mingguan, atau bulanan sesuai pilihan Anda di sebelah kiri.
+    * **Cara Baca:** Angka-angka di atas adalah harga asli saham dalam satuan Rupiah. Anda bisa melihat pergerakan naik atau turun harga tiap saham dari waktu ke waktu pada rentang tanggal yang dipilih.
+    """)
+
 # --- SHEET 2: RETURN ---
 st.header(f"2️⃣ Sheet Perhitungan Return / Imbal Hasil ({periode_hitung})")
 st.dataframe(df_return.style.format("{:.2%}"), use_container_width=True)
+
+with st.expander("💡 Penjelasan Sederhana - Sheet 2 (Return / Imbal Hasil)", expanded=True):
+    st.markdown("""
+    * **Isi Tabel:** Menampilkan persentase perubahan harga (keuntungan atau kerugian) dari satu periode ke periode berikutnya.
+    * **Cara Baca:** 
+      * Nilai **positif (+)** artinya harga saham sedang naik (untung).
+      * Nilai **negatif (-)** artinya harga saham sedang turun (rugi).
+      * Nilai **0%** adalah titik awal perhitungan pada baris pertama.
+    """)
 
 # --- SHEET 3: STATISTIK INDIVIDUAL ---
 st.header("3️⃣ Sheet Statistik & Risiko Individual Saham")
@@ -250,9 +265,24 @@ df_statistik = pd.DataFrame({
 })
 st.dataframe(df_statistik.style.format("{:.4f}"), use_container_width=True)
 
+with st.expander("💡 Penjelasan Sederhana - Sheet 3 (Statistik & Risiko)", expanded=True):
+    st.markdown("""
+    * **Isi Tabel:** Rangkuman performa masing-masing saham secara tahunan.
+    * **Cara Baca:**
+      * **Expected Return (Tahunan):** Perkiraan persentase keuntungan yang bisa didapat dalam 1 tahun.
+      * **Risiko / Volatilitas (Tahunan):** Seberapa liar atau besar naik-turun harga saham tersebut. Semakin besar nilai risikonya, semakin besar pula potensi untung atau ruginya.
+    """)
+
 # --- SHEET 4: MATRIKS KOVARIANS ---
 st.header("4️⃣ Sheet Matriks Kovarians (Covariance Matrix)")
 st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
+
+with st.expander("💡 Penjelasan Sederhana - Sheet 4 (Matriks Kovarians)", expanded=True):
+    st.markdown("""
+    * **Isi Tabel:** Angka yang menunjukkan bagaimana hubungan antar dua saham bergerak bersamaan.
+    * **Cara Baca:** 
+      * Jika nilainya **negatif**, artinya kedua saham sering bergerak berlawanan arah (satu naik, yang lain turun). Ini sangat bagus untuk portofolio karena bisa saling menutupi risiko (diversifikasi).
+    """)
 
 # --- SHEET 5: EVALUASI, GRAFIK & KEPUTUSAN ---
 st.header("5️⃣ Sheet Evaluasi Portofolio & Saran Pengambilan Bobot")
@@ -268,9 +298,15 @@ col1.metric("Expected Return Tahunan", f"{port_return_tahunan:.2%}")
 col2.metric("Risiko Portofolio Tahunan", f"{port_std_tahunan:.2%}")
 col3.metric("Sharpe Ratio (Efisiensi)", f"{sharpe_ratio:.2f}")
 
-with st.expander("📘 Ringkasan Alokasi Bobot Optimal", expanded=True):
+with st.expander("💡 Penjelasan Sederhana - Sheet 5 (Evaluasi Portofolio)", expanded=True):
     saran_teks = [f"- **{s.replace('.JK', '')}**: bobot optimal **{bobot_terbaik[i]*100:.1f}%**" for i, s in enumerate(saham_terpilih)]
-    st.markdown(f"**Saran Alokasi Bobot Optimal (Sharpe Ratio Maksimal):**<br>" + "<br>".join(saran_teks), unsafe_allow_html=True)
+    st.markdown(f"""
+    * **Expected Return Tahunan:** Total perkiraan keuntungan gabungan dari seluruh saham pilihan Anda dalam setahun (**{port_return_tahunan:.2%}**).
+    * **Risiko Portofolio Tahunan:** Tingkat ketidakpastian atau naik-turun gabungan dari portofolio Anda (**{port_std_tahunan:.2%}**).
+    * **Sharpe Ratio:** Tingkat efisiensi investasi. Semakin tinggi nilainya, semakin bagus keuntungan yang Anda dapatkan dibandingkan dengan risiko yang harus ditanggung.
+    <br><br>
+    **Saran Alokasi Bobot Terbaik (Agar Keuntungan Maksimal & Risiko Minimal):**<br>
+    """ + "<br>".join(saran_teks), unsafe_allow_html=True)
 
 # --- GRAFIK KINERJA ---
 st.subheader("📊 Visualisasi Pertumbuhan Harga Saham JII (Base = 100)")
@@ -289,19 +325,22 @@ ax.legend(loc="upper left")
 ax.grid(True, linestyle="--", alpha=0.5)
 st.pyplot(fig)
 
+with st.expander("💡 Penjelasan Grafik Pertumbuhan", expanded=False):
+    st.markdown("Grafik di atas menunjukkan perbandingan pertumbuhan modal Anda jika dimulai dari angka yang sama yaitu **100** pada awal periode. Saham dengan garis paling tinggi adalah saham yang memberikan pertumbuhan paling baik selama rentang waktu tersebut.")
+
 # --- KESIMPULAN & REKOMENDASI ---
 st.subheader("💡 Kesimpulan & Rekomendasi Keputusan Portofolio Syariah")
 daftar_nama_pendek = ", ".join(df_harga_display.columns)
 
 if port_std_tahunan < 0.15:
     kategori_risiko = "Rendah (Konservatif) 🛡️"
-    deskripsi = f"Portofolio emiten JII ({daftar_nama_pendek}) memiliki volatilitas tahunan terkendali sebesar **{port_std_tahunan:.2%}** dengan potensi return **{port_return_tahunan:.2%}**."
+    deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) sangat cocok untuk investasi jangka panjang karena risikonya kecil (**{port_std_tahunan:.2%}** per tahun) dengan potensi keuntungan **{port_return_tahunan:.2%}**."
 elif port_std_tahunan <= 0.25:
     kategori_risiko = "Sedang (Moderat) ⚖️"
-    deskripsi = f"Portofolio emiten JII ({daftar_nama_pendek}) berada pada titik keseimbangan optimal dengan return **{port_return_tahunan:.2%}** dan risiko **{port_std_tahunan:.2%}** (Sharpe Ratio: **{sharpe_ratio:.2f}**)."
+    deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) berada di posisi yang pas dan seimbang antara potensi keuntungan (**{port_return_tahunan:.2%}**) dan risikonya (**{port_std_tahunan:.2%}**). Sangat layak untuk dieksekusi."
 else:
     kategori_risiko = "Tinggi (Agresif) 🚀"
-    deskripsi = f"Portofolio emiten JII ({daftar_nama_pendek}) memiliki fluktuasi tahunan tinggi sebesar **{port_std_tahunan:.2%}**."
+    deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) memiliki pergerakan yang cukup liar dan berisiko tinggi (**{port_std_tahunan:.2%}**). Cocok bagi investor yang siap dengan fluktuasi pasar jangka pendek demi memburu keuntungan besar."
 
 st.info(f"**Profil Risiko Portofolio JII:** {kategori_risiko}")
 st.markdown(deskripsi)
