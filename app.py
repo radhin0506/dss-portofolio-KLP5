@@ -96,10 +96,9 @@ if sumber_data == "Upload File Sendiri (Excel/CSV)":
             st.sidebar.success("✅ File berhasil dimuat!")
         except Exception as e:
             st.sidebar.error(f"Gagal membaca file: {e}")
-            st.stop()
+            df_harga_display = None
     else:
-        st.info("👈 Silakan unggah file Excel/CSV Anda melalui panel di sebelah kiri.")
-        st.stop()
+        st.sidebar.info("👈 Silakan unggah file Excel/CSV Anda.")
 
 else:
     saham_terpilih = st.sidebar.multiselect(
@@ -108,10 +107,6 @@ else:
         default=["BRIS.JK", "CTRA.JK", "TLKM.JK"],
         format_func=lambda x: DAFTAR_SAHAM_JII[x]
     )
-
-    if len(saham_terpilih) < 2:
-        st.warning("⚠️ Silakan pilih minimal **2 saham JII** di menu sebelah kiri.")
-        st.stop()
 
     pilihan_mode_waktu = st.sidebar.radio(
         "2. Mode Filter Waktu:",
@@ -136,31 +131,6 @@ else:
             tanggal_mulai, tanggal_selesai = pd.to_datetime("2026-01-01"), pd.Timestamp.today()
         periode_yf = "max"
 
-    @st.cache_data(ttl=3600)
-    def ambil_data_saham(tickers, period):
-        df_download = yf.download(tickers, period=period, progress=False)
-        if isinstance(df_download.columns, pd.MultiIndex):
-            data = df_download["Close"]
-        else:
-            data = df_download[["Close"]] if "Close" in df_download.columns else df_download
-
-        if isinstance(data, pd.Series):
-            data = data.to_frame(name=tickers[0])
-        return data.dropna()
-
-    with st.spinner("Mengambil data real-time saham JII dari Yahoo Finance..."):
-        df_raw = ambil_data_saham(saham_terpilih, periode_yf)
-
-    if df_raw.empty:
-        df_raw = yf.download(saham_terpilih, period="2y", progress=False)["Close"]
-
-    df_raw = df_raw[saham_terpilih]
-    df_raw.index = pd.to_datetime(df_raw.index)
-    df_filtered = df_raw[(df_raw.index >= tanggal_mulai) & (df_raw.index <= tanggal_selesai)]
-
-    if df_filtered.empty:
-        df_filtered = df_raw.tail(100)
-
     periode_hitung = st.sidebar.selectbox(
         "3. Pilih Frekuensi Perhitungan:",
         options=["Mingguan", "Harian", "Bulanan", "Semester (6 Bulan)", "Tahunan"]
@@ -177,42 +147,84 @@ else:
     faktor_waktu = aturan_periode[periode_hitung]["faktor"]
     label_faktor_teks = aturan_periode[periode_hitung]["label_faktor"]
 
-    if periode_hitung == "Harian":
-        df_harga = df_filtered.dropna()
-    else:
-        rule_map = {"Mingguan": "W-FRI", "Bulanan": "ME", "Semester (6 Bulan)": "2QE", "Tahunan": "YE"}
-        df_harga = df_filtered.resample(rule_map.get(periode_hitung, "W-FRI")).last().dropna()
+    if len(saham_terpilih) >= 2:
+        @st.cache_data(ttl=3600)
+        def ambil_data_saham(tickers, period):
+            df_download = yf.download(tickers, period=period, progress=False)
+            if isinstance(df_download.columns, pd.MultiIndex):
+                data = df_download["Close"]
+            else:
+                data = df_download[["Close"]] if "Close" in df_download.columns else df_download
 
-    df_harga_display = df_harga.copy()
-    df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
+            if isinstance(data, pd.Series):
+                data = data.to_frame(name=tickers[0])
+            return data.dropna()
 
-if sumber_data == "Upload File Sendiri (Excel/CSV)":
-    periode_hitung = "Data Upload Mandiri"
-    jumlah_baris_data = len(df_harga_display)
-    st.sidebar.info(f"📊 Jumlah data historis terdeteksi: **{jumlah_baris_data} baris**.")
-    
-    pilihan_skala = st.sidebar.selectbox(
-        "Pilih Penyesuaian Skala Waktu:",
-        options=[
-            f"Gunakan Nilai Per Periode Murni (Faktor = 1)",
-            f"Sesuaikan dengan Jumlah Data ({jumlah_baris_data} baris setara 1 Tahun)",
-            f"Setahun Penuh (Faktor Standar 52 Minggu)",
-            f"Atur Faktor Manual"
-        ]
-    )
-    if "Faktor = 1" in pilihan_skala or "Nilai Per Periode" in pilihan_skala:
-        faktor_waktu = 1.0
-        label_faktor_teks = f"1 (Periode murni dari {jumlah_baris_data} data)"
-    elif "52 Minggu" in pilihan_skala:
-        faktor_waktu = 52.0
-        label_faktor_teks = "52 minggu (standar tahunan)"
+        with st.spinner("Mengambil data real-time saham JII dari Yahoo Finance..."):
+            df_raw = ambil_data_saham(saham_terpilih, periode_yf)
+
+        if df_raw.empty:
+            df_raw = yf.download(saham_terpilih, period="2y", progress=False)["Close"]
+
+        df_raw = df_raw[saham_terpilih]
+        df_raw.index = pd.to_datetime(df_raw.index)
+        df_filtered = df_raw[(df_raw.index >= tanggal_mulai) & (df_raw.index <= tanggal_selesai)]
+
+        if df_filtered.empty:
+            df_filtered = df_raw.tail(100)
+
+        if periode_hitung == "Harian":
+            df_harga = df_filtered.dropna()
+        else:
+            rule_map = {"Mingguan": "W-FRI", "Bulanan": "ME", "Semester (6 Bulan)": "2QE", "Tahunan": "YE"}
+            df_harga = df_filtered.resample(rule_map.get(periode_hitung, "W-FRI")).last().dropna()
+
+        df_harga_display = df_harga.copy()
+        df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
+
+# --- VALIDASI DATA SEBELUM ANALISIS ---
+if df_harga_display is None or df_harga_display.empty:
+    if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
+        st.warning("⚠️ Silakan pilih minimal **2 saham JII** atau unggah file data Anda terlebih dahulu di menu sebelah kiri.")
+        st.stop()
     else:
-        faktor_waktu = st.sidebar.number_input("Masukkan Angka Faktor Pengali Custom:", value=1.0, step=0.5)
-        label_faktor_teks = f"Custom ({faktor_waktu})"
+        # Tampilkan dummy/data default untuk beranda agar tetap cantik saat belum pilih saham
+        saham_terpilih_list = ["BRIS", "CTRA", "TLKM"]
+        dates = pd.date_range(start="2026-01-01", periods=10, freq="W")
+        df_harga_display = pd.DataFrame({
+            "BRIS": [2000, 2050, 2100, 2080, 2150, 2200, 2180, 2250, 2300, 2350],
+            "CTRA": [1000, 1020, 1010, 1050, 1070, 1060, 1090, 1110, 1100, 1130],
+            "TLKM": [3500, 3550, 3520, 3600, 3580, 3650, 3700, 3680, 3750, 3800]
+        }, index=dates)
+        faktor_waktu = 52
+        label_faktor_teks = "52 minggu"
+        periode_hitung = "Default Beranda"
 else:
-    jumlah_baris_data = len(df_harga_display)
+    if sumber_data == "Upload File Sendiri (Excel/CSV)":
+        periode_hitung = "Data Upload Mandiri"
+        jumlah_baris_data = len(df_harga_display)
+        
+        pilihan_skala = st.sidebar.selectbox(
+            "Pilih Penyesuaian Skala Waktu:",
+            options=[
+                f"Gunakan Nilai Per Periode Murni (Faktor = 1)",
+                f"Sesuaikan dengan Jumlah Data ({jumlah_baris_data} baris setara 1 Tahun)",
+                f"Setahun Penuh (Faktor Standar 52 Minggu)",
+                f"Atur Faktor Manual"
+            ]
+        )
+        if "Faktor = 1" in pilihan_skala or "Nilai Per Periode" in pilihan_skala:
+            faktor_waktu = 1.0
+            label_faktor_teks = f"1 (Periode murni dari {jumlah_baris_data} data)"
+        elif "52 Minggu" in pilihan_skala:
+            faktor_waktu = 52.0
+            label_faktor_teks = "52 minggu (standar tahunan)"
+        else:
+            faktor_waktu = st.sidebar.number_input("Masukkan Angka Faktor Pengali Custom:", value=1.0, step=0.5)
+            label_faktor_teks = f"Custom ({faktor_waktu})"
 
 saham_terpilih_list = list(df_harga_display.columns)
+jumlah_baris_data = len(df_harga_display)
 
 df_return = df_harga_display.pct_change().fillna(0)
 df_return_stats = df_harga_display.pct_change().dropna()
@@ -247,7 +259,7 @@ for saham in saham_terpilih_list:
 
 total_bobot = sum(bobot_input)
 if abs(total_bobot - 100.0) > 0.001:
-    st.sidebar.warning(f"⚠️ Total bobot saat ini: **{total_bobot:.4f}%**. Disarankan total bobot pas 100.00%.")
+    st.sidebar.warning(f"⚠️ Total bobot saat ini: **{total_bobot:.4f}%**. Disarankan pas 100.00%.")
 
 if total_bobot == 0:
     total_bobot = 1.0
@@ -325,7 +337,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
         * **6️⃣ Sheet 6: Return Portofolio & Kinerja** — Evaluasi akhir menggunakan Sharpe, Treynor, & Alpha.
         """)
     
-    st.success("👉 Silakan ubah bobot atau pilih saham di panel sebelah kiri, lalu pilih menu **Analisis Lengkap (6 Sheet)** di sidebar untuk melihat perhitungan rinci!")
+    st.success("👉 Silakan sesuaikan pilihan saham atau bobot di panel sebelah kiri, lalu pilih menu **Analisis Lengkap (6 Sheet)** di sidebar untuk melihat rincian perhitungannya!")
 
 else:
     # =====================================================================
@@ -415,44 +427,4 @@ else:
     col3.metric("Beta Portofolio", f"{port_beta:.4f}")
 
     col_m4, col_m5, col_m6 = st.columns(3)
-    col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
-    col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
-    col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
-
-    df_port_summary = pd.DataFrame({
-        "Emiten": saham_terpilih_list,
-        "Bobot (%)": [w * 100 for w in weights],
-        "Expected Return": mean_return_stats.values,
-        "Kontribusi Return": (mean_return_stats.values * weights)
-    })
-    st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
-
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
-        st.markdown(
-            f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
-            f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
-            f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
-            f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
-            f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
-            f"**Kesimpulan Keseluruhan Portofolio:**\n"
-            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan tingkat risiko **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
-            f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
-            f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
-        )
-
-    # --- GRAFIK KINERJA ---
-    st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
-    df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
-
-    plt.clf()
-    fig, ax = plt.subplots(figsize=(10, 4))
-
-    for idx, saham in enumerate(df_norm.columns):
-        warna_pilih = WARNA_PASTEL[idx % len(WARNA_PASTEL)]
-        ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.2, color=warna_pilih)
-
-    ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
-    ax.set_xlabel("Tanggal")
-    ax.legend(loc="upper left")
-    ax.grid(True, linestyle="--", alpha=0.5)
-    st.pyplot(fig)
+    col_m4.metric("Sharpe Ratio
