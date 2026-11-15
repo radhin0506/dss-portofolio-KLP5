@@ -171,22 +171,41 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         uploaded_file = st.sidebar.file_uploader("Unggah file data harga Close (.xlsx / .csv):", type=["xlsx", "csv"])
         if uploaded_file is not None:
             try:
+                # Membaca file dengan pembersihan otomatis baris kosong di awal
                 if uploaded_file.name.endswith(".csv"):
                     df_uploaded = pd.read_csv(uploaded_file)
                 else:
                     df_uploaded = pd.read_excel(uploaded_file)
                 
-                kolom_tanggal = [c for c in df_uploaded.columns if "tanggal" in c.lower() or "date" in c.lower()]
+                # Otomatis cari kolom tanggal/waktu
+                kolom_tanggal = [c for c in df_uploaded.columns if any(k in str(c).lower() for k in ["tanggal", "date", "time", "periode", "bulan", "tahun"])]
                 if kolom_tanggal:
-                    df_uploaded[kolom_tanggal[0]] = pd.to_datetime(df_uploaded[kolom_tanggal[0]])
+                    df_uploaded[kolom_tanggal[0]] = pd.to_datetime(df_uploaded[kolom_tanggal[0]], errors='coerce')
+                    df_uploaded = df_uploaded.dropna(subset=[kolom_tanggal[0]])
                     df_uploaded = df_uploaded.set_index(kolom_tanggal[0])
+                else:
+                    # Jika tidak ada kolom tanggal, jadikan kolom pertama sebagai indeks
+                    df_uploaded.index = pd.to_datetime(df_uploaded.iloc[:, 0], errors='coerce')
+                    df_uploaded = df_uploaded.iloc[:, 1:]
+
+                # Pembersihan nilai angka dari simbol mata uang atau koma
+                df_harga_clean = df_uploaded.select_dtypes(include=[np.number])
+                if df_harga_clean.empty:
+                    # Jika terbaca sebagai teks karena ada simbol (misal 'Rp 2,000'), bersihkan secara manual
+                    df_harga_clean = df_uploaded.apply(lambda col: pd.to_numeric(
+                        col.astype(str).str.replace('Rp', '', case=False)
+                           .str.replace('.', '', regex=False)
+                           .str.replace(',', '.', regex=False)
+                           .str.strip(), errors='coerce'
+                    ))
                 
-                df_harga_display = df_uploaded.select_dtypes(include=[np.number])
+                df_harga_display = df_harga_clean.dropna(how='all').dropna(axis=1, how='all')
                 if "No" in df_harga_display.columns:
                     df_harga_display = df_harga_display.drop(columns=["No"])
-                st.sidebar.success("✅ File berhasil dimuat!")
+                
+                st.sidebar.success("✅ File berhasil dibersihkan dan dimuat!")
             except Exception as e:
-                st.sidebar.error(f"Gagal membaca file: {e}")
+                st.sidebar.error(f"Gagal memproses file: {e}")
                 df_harga_display = None
         else:
             st.sidebar.info("👈 Silakan unggah file Excel/CSV Anda.")
