@@ -7,7 +7,7 @@ import yfinance as yf
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
 
-# --- KUSTOMISASI CSS WARNA PASTEL COKLAT ---
+# --- KUSTOMISASI CSS WARNA PASTEL COKLAT (EARTH TONE) ---
 st.markdown("""
 <style>
     :root {
@@ -50,7 +50,7 @@ st.markdown(
     "konstituen **Jakarta Islamic Index (JII)** di Bursa Efek Indonesia (BEI) secara *real-time*."
 )
 
-# --- 1. DAFTAR RESMI 30 SAHAM KONSTITUEN INDEKS JII ---
+# --- 1. DAFTAR RESMI 30 SAHAM KONSTITUEN INDEKS JII (TERMASUK CTRA) ---
 DAFTAR_SAHAM_JII = {
     "AADI.JK": "AADI - Adaro Andalan Indonesia Tbk. (Energi)",
     "ADMR.JK": "ADMR - Alamtri Minerals Indonesia Tbk. (Pertambangan)",
@@ -62,6 +62,7 @@ DAFTAR_SAHAM_JII = {
     "BRMS.JK": "BRMS - Bumi Resources Minerals Tbk. (Pertambangan)",
     "BUMI.JK": "BUMI - Bumi Resources Tbk. (Energi)",
     "CPIN.JK": "CPIN - Charoen Pokphand Indonesia Tbk. (Barang Konsumen Primer)",
+    "CTRA.JK": "CTRA - Ciputra Development Tbk. (Properti & Real Estate)",
     "DEWA.JK": "DEWA - Darma Henwa Tbk. (Energi)",
     "ENRG.JK": "ENRG - Energi Mega Persada Tbk. (Energi)",
     "EXCL.JK": "EXCL - XLsmart Telecom Sejahtera Tbk. (Telekomunikasi)",
@@ -90,7 +91,7 @@ st.sidebar.header("⚙️ Pengaturan Portofolio JII")
 saham_terpilih = st.sidebar.multiselect(
     "1. Pilih Saham Konstituen JII (Min. 2):",
     options=list(DAFTAR_SAHAM_JII.keys()),
-    default=["BRIS.JK", "TLKM.JK", "ICBP.JK", "ADRO.JK"],
+    default=["BRIS.JK", "TLKM.JK", "CTRA.JK", "ADRO.JK"],
     format_func=lambda x: DAFTAR_SAHAM_JII[x]
 )
 
@@ -113,18 +114,14 @@ periode_hitung = st.sidebar.selectbox(
     options=["Harian", "Mingguan", "Bulanan", "Tahunan"]
 )
 
-# Tarik data dengan rentang yang pasti berdasarkan pilihan tahun user
 periode_yf = f"{jumlah_tahun}y"
 
 
-# --- 3. MENGAMBIL DATA REAL-TIME DARI WEB (MENGGUNAKAN HARGA CLOSE ASLI) ---
+# --- 3. MENGAMBIL DATA REAL-TIME (CLOSE MURNI DALAM RUPIAH) ---
 @st.cache_data(ttl=3600)
 def ambil_data_saham(tickers, period):
-    # Mengambil data Close murni agar angka harga sesuai nominal bursa (tidak berupa desimal adjusted)
     df_download = yf.download(tickers, period=period, progress=False)
-    
     if isinstance(df_download.columns, pd.MultiIndex):
-        # Jika multi-index, ambil bagian Close-nya saja secara aman
         data = df_download["Close"]
     else:
         data = df_download[["Close"]] if "Close" in df_download.columns else df_download
@@ -143,7 +140,7 @@ if df_raw.empty:
 df_raw = df_raw[saham_terpilih]
 df_raw.index = pd.to_datetime(df_raw.index)
 
-# ATURAN PERIODE RESAMPLING YANG KONSISTEN
+# ATURAN PERIODE RESAMPLING
 aturan_periode = {
     "Harian": {"faktor": 252, "ket": "Hari bursa aktif"},
     "Mingguan": {"rule": "W-FRI", "faktor": 52, "ket": "Setiap akhir minggu (Jumat)"},
@@ -153,7 +150,6 @@ aturan_periode = {
 
 faktor_waktu = aturan_periode[periode_hitung]["faktor"]
 
-# Proses Resampling sesuai frekuensi tanpa mengubah nilai harga aslinya
 if periode_hitung == "Harian":
     df_harga = df_raw.dropna()
 else:
@@ -214,8 +210,8 @@ weights = np.array(bobot_input) / total_bobot
 ringkasan_bobot = ", ".join([f"{s.replace('.JK', '')}: {w*100:.1f}%" for s, w in zip(saham_terpilih, weights)])
 st.sidebar.info(f"**Komposisi Bobot Aktif (Total 100%):**\n\n{ringkasan_bobot}")
 
-# --- PALET WARNA PASTEL ---
-WARNA_PASTEL = ["#4A90E2", "#E056FD", "#686DE0", "#30336B", "#EB4D4B", "#6AB04C", "#F0932B", "#7ed6df"]
+# --- PALET WARNA PASTEL COKLAT UNTUK GRAFIK ---
+WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25", "#E6CCB2", "#D4A373"]
 
 
 # =====================================================================
@@ -224,15 +220,15 @@ WARNA_PASTEL = ["#4A90E2", "#E056FD", "#686DE0", "#30336B", "#EB4D4B", "#6AB04C"
 
 # --- SHEET 1: DATA HARGA ---
 st.header(f"1️⃣ Sheet Data Harga Penutupan Saham JII ({periode_hitung})")
-st.dataframe(df_harga_display, use_container_width=True)
+st.dataframe(df_harga_display.style.format("Rp {:,.0f}"), use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 1 (Data Harga Historis)", expanded=True):
     tgl_awal_str = df_harga_display.index.min().strftime('%d %b %Y')
     tgl_akhir_str = df_harga_display.index.max().strftime('%d %b %Y')
     st.markdown(f"""
-    * **Cakupan Emiten:** Konstituen resmi **Jakarta Islamic Index (JII)**.
-    * **Rentang & Frekuensi Data:** Menampilkan harga penutupan (*Close*) selama **{rentang_waktu}** (dari tanggal **{tgl_awal_str}** s.d. **{tgl_akhir_str}**) dengan frekuensi **{periode_hitung.lower()}** total **{len(df_harga_display)} baris data**.
-    * **📌 Kesimpulan Sheet 1:** Data harga historis tersaji akurat sesuai harga penutupan bursa pada setiap titik waktu yang dipilih.
+    * **Cakupan Emiten:** Konstituen resmi **Jakarta Islamic Index (JII)** termasuk **Ciputra Development (CTRA)**.
+    * **Rentang & Frekuensi Data:** Menampilkan harga penutupan rupiah murni selama **{rentang_waktu}** (dari tanggal **{tgl_awal_str}** s.d. **{tgl_akhir_str}**) dengan frekuensi **{periode_hitung.lower()}** total **{len(df_harga_display)} baris data**.
+    * **📌 Kesimpulan Sheet 1:** Data harga historis tersaji akurat dalam nominal rupiah asli sesuai penutupan bursa pada setiap titik waktu yang dipilih.
     """)
 
 # --- SHEET 2: RETURN ---
@@ -305,7 +301,7 @@ with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 5 (Portofolio Gabung
     * **📌 Kesimpulan Sheet 5:** Kombinasi bobot aktif saat ini menghasilkan tingkat efisiensi portofolio (*Sharpe Ratio*) sebesar **{sharpe_ratio:.2f}**.
     """)
 
-# --- GRAFIK KINERJA DENGAN WARNA PASTEL ---
+# --- GRAFIK KINERJA DENGAN WARNA PASTEL COKLAT ---
 st.subheader("📊 Visualisasi Pertumbuhan Harga Saham JII (Base = 100)")
 df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
 
