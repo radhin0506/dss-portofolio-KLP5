@@ -610,20 +610,20 @@ else:
     st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Kinerja)", expanded=True):
-        teks_panduan_sheet6 = (
+        panduan_s6 = (
             "* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
-            f"* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **{port_var_skala:.6f}** (Memperhitungkan bobot & kovarians antar aset)\n"
-            f"* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **{port_std_skala:.4f} ({port_std_skala:.2%})**\n"
+            "* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **" + f"{port_var_skala:.6f}" + "** (Memperhitungkan bobot & kovarians antar aset)\n"
+            "* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **" + f"{port_std_skala:.4f} ({port_std_skala:.2%})" + "**\n"
             f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
-            f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
-            f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
-            f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
+            "* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **" + f"{sharpe_ratio:.4f}" + "**\n"
+            "* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **" + f"{treynor_ratio:.4f}" + "**\n"
+            "* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **" + f"{jensen_alpha:.4f}" + "**\n\n"
             "**Kesimpulan Keseluruhan Portofolio:**\n"
-            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan Variance Portofolio **{port_var_skala:.6f}** dan Risiko (Standar Deviasi) sebesar **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
+            "* Portofolio Anda menghasilkan Expected Return sebesar **" + f"{port_return_skala:.2%}" + "** dengan Variance Portofolio **" + f"{port_var_skala:.6f}" + "** dan Risiko (Standar Deviasi) sebesar **" + f"{port_std_skala:.2%}" + f"** berdasarkan {jumlah_baris_data} data historis.\n"
             "* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
             "* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
         )
-        st.markdown(teks_panduan_sheet6)
+        st.markdown(panduan_s6)
 
     # --- GRAFIK KINERJA ---
     st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
