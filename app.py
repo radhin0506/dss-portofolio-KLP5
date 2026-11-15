@@ -43,21 +43,65 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. DAFTAR RESMI SAHAM JII ---
+# --- 1. DAFTAR LENGKAP 30 SAHAM JII + CTRA (TOTAL 31 SAHAM) ---
 DAFTAR_SAHAM_JII = {
-    "BRIS.JK": "BRIS - Bank Syariah Indonesia Tbk.",
-    "CTRA.JK": "CTRA - Ciputra Development Tbk.",
-    "TLKM.JK": "TLKM - Telkom Indonesia (Persero) Tbk.",
     "AADI.JK": "AADI - Adaro Andalan Indonesia Tbk.",
+    "ADMR.JK": "ADMR - Alamtri Minerals Indonesia Tbk.",
     "ADRO.JK": "ADRO - Alamtri Resources Indonesia Tbk.",
     "ANTM.JK": "ANTM - Aneka Tambang Tbk.",
+    "ARCI.JK": "ARCI - Archi Indonesia Tbk.",
+    "BKSL.JK": "BKSL - Sentul City Tbk.",
+    "BRIS.JK": "BRIS - Bank Syariah Indonesia Tbk.",
+    "BRMS.JK": "BRMS - Bumi Resources Minerals Tbk.",
+    "BUMI.JK": "BUMI - Bumi Resources Tbk.",
     "CPIN.JK": "CPIN - Charoen Pokphand Indonesia Tbk.",
+    "CTRA.JK": "CTRA - Ciputra Development Tbk.",
+    "DEWA.JK": "DEWA - Darma Henwa Tbk.",
+    "ENRG.JK": "ENRG - Energi Mega Persada Tbk.",
+    "EXCL.JK": "EXCL - XLSMART Telecom Sejahtera Tbk.",
     "ICBP.JK": "ICBP - Indofood CBP Sukses Makmur Tbk.",
     "INDF.JK": "INDF - Indofood Sukses Makmur Tbk.",
+    "INKP.JK": "INKP - Indah Kiat Pulp & Paper Tbk.",
+    "JPFA.JK": "JPFA - Japfa Comfeed Indonesia Tbk.",
     "KLBF.JK": "KLBF - Kalbe Farma Tbk.",
+    "MBMA.JK": "MBMA - Merdeka Battery Materials Tbk.",
+    "MDKA.JK": "MDKA - Merdeka Copper Gold Tbk.",
+    "MEDC.JK": "MEDC - Medco Energi Internasional Tbk.",
+    "PGAS.JK": "PGAS - Perusahaan Gas Negara Tbk.",
+    "PTBA.JK": "PTBA - Bukit Asam Tbk.",
+    "RAJA.JK": "RAJA - Rukun Raharja Tbk.",
+    "RATU.JK": "RATU - Raharja Energi Cepu Tbk.",
+    "TLKM.JK": "TLKM - Telkom Indonesia (Persero) Tbk.",
+    "TPIA.JK": "TPIA - Chandra Asri Pacific Tbk.",
     "UNTR.JK": "UNTR - United Tractors Tbk.",
-    "UNVR.JK": "UNVR - Unilever Indonesia Tbk."
+    "UNVR.JK": "UNVR - Unilever Indonesia Tbk.",
+    "WIFI.JK": "WIFI - Solusi Sinergi Digital Tbk."
 }
+
+# --- FUNGSI OPTIMASI BOBOT OTOMATIS (MONTE CARLO) ---
+def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="sharpe", n_simulasi=15000):
+    np.random.seed(42)
+    n_aset = len(mean_ret)
+    
+    # Hasilkan kombinasi bobot acak (Dirichlet distribution memastikan jumlah bobot = 1.0)
+    w_acak = np.random.dirichlet(np.ones(n_aset), size=n_simulasi)
+    
+    # Hitung return & risiko tahunan/skala untuk seluruh simulasi sekaligus (vektorisasi cepat)
+    port_ret = np.dot(w_acak, mean_ret) * faktor
+    port_var = np.sum(np.dot(w_acak, cov_mat) * w_acak, axis=1)
+    port_std = np.sqrt(port_var) * np.sqrt(faktor)
+    port_beta_sim = np.dot(w_acak, beta_arr)
+    
+    if target == "sharpe":
+        skor = np.where(port_std != 0, (port_ret - rf) / port_std, -np.inf)
+    elif target == "treynor":
+        # Hindari pembagian beta negatif ekstrem yang bisa mendistorsi
+        skor = np.where(port_beta_sim > 0.05, (port_ret - rf) / port_beta_sim, -np.inf)
+    else:  # jensen's alpha
+        skor = port_ret - (rf + port_beta_sim * (rm - rf))
+        
+    idx_terbaik = np.argmax(skor)
+    return w_acak[idx_terbaik] * 100.0  # Kembalikan dalam bentuk persentase (%)
 
 # --- 2. SIDEBAR: NAVIGASI MENU ---
 st.sidebar.header("🧭 Navigasi Menu")
@@ -75,6 +119,7 @@ risk_free_rate = 0.06
 market_return = 0.10
 weights = np.array([1/3, 1/3, 1/3])
 saham_terpilih_list = ["BRIS", "CTRA", "TLKM"]
+mode_bobot = "Manual (Desimal spesifik)"
 
 # --- PENGATURAN HANYA MUNCUL DI HALAMAN ANALISIS ---
 if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
@@ -222,39 +267,91 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
 
     saham_terpilih_list = list(df_harga_display.columns)
 
-    # --- SIDEBAR: BOBOT DESIMAL & PARAMETER KINERJA ---
+    # Hitung statistik awal sebelum penentuan bobot otomatis
+    df_return_temp = df_harga_display.pct_change().dropna()
+    if df_return_temp.empty:
+        df_return_temp = df_harga_display.pct_change().fillna(0)
+    mean_ret_temp = df_return_temp.mean().values
+    cov_mat_temp = df_return_temp.cov().values
+
+    market_proxy_temp = df_return_temp.mean(axis=1)
+    market_var_temp = market_proxy_temp.var()
+    if market_var_temp == 0:
+        market_var_temp = 0.0020
+    beta_temp = []
+    for col in df_return_temp.columns:
+        cov_val = pd.concat([df_return_temp[col], market_proxy_temp], axis=1).cov().iloc[0, 1]
+        beta_temp.append(cov_val / market_var_temp if market_var_temp != 0 else 1.0)
+    beta_temp = np.array(beta_temp)
+
+    # --- SIDEBAR: PARAMETER KINERJA (BENCHMARK & RF) ---
+    st.sidebar.subheader("📈 Parameter Kinerja (Benchmark & Rf)")
+    risk_free_rate = st.sidebar.number_input("Bunga Bebas Risiko (Rf - Tahunan)", value=0.06, step=0.001, format="%.4f")
+    market_return = st.sidebar.number_input("Expected Return Pasar (Rm - Tahunan)", value=0.10, step=0.001, format="%.4f")
+
+    # --- SIDEBAR: BOBOT DESIMAL & OPTIMASI OTOMATIS ---
     st.sidebar.subheader("⚖️ Atur Bobot Investasi (%)")
     mode_bobot = st.sidebar.radio(
         "Metode Penentuan Bobot:",
-        options=["Manual (Desimal spesifik)", "Bobot Berimbang (Equal Weight)"]
+        options=[
+            "Manual (Desimal spesifik)",
+            "Bobot Berimbang (Equal Weight)",
+            "Otomatis: Maksimum Sharpe Ratio",
+            "Otomatis: Maksimum Treynor Ratio",
+            "Otomatis: Maksimum Jensen's Alpha"
+        ]
     )
 
-    bobot_input = []
     jumlah_saham = len(saham_terpilih_list)
     default_bobot_satuan = round(100.0 / jumlah_saham, 4)
 
-    for saham in saham_terpilih_list:
-        nilai = st.sidebar.number_input(
-            f"Bobot {saham} (%)", 
-            min_value=0.0, 
-            max_value=100.0, 
-            value=default_bobot_satuan, 
-            step=0.01, 
-            format="%.4f"
-        )
+    if mode_bobot == "Otomatis: Maksimum Sharpe Ratio":
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="sharpe")
+        st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Sharpe Ratio tertinggi**!")
+    elif mode_bobot == "Otomatis: Maksimum Treynor Ratio":
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="treynor")
+        st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Treynor Ratio tertinggi**!")
+    elif mode_bobot == "Otomatis: Maksimum Jensen's Alpha":
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="alpha")
+        st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Jensen's Alpha tertinggi**!")
+    elif mode_bobot == "Bobot Berimbang (Equal Weight)":
+        bobot_optimal_persen = [default_bobot_satuan] * jumlah_saham
+    else:
+        bobot_optimal_persen = [default_bobot_satuan] * jumlah_saham
+
+    bobot_input = []
+    for idx, saham in enumerate(saham_terpilih_list):
+        if mode_bobot == "Manual (Desimal spesifik)":
+            nilai = st.sidebar.number_input(
+                f"Bobot {saham} (%)", 
+                min_value=0.0, 
+                max_value=100.0, 
+                value=float(bobot_optimal_persen[idx]), 
+                step=0.01, 
+                format="%.4f",
+                key=f"manual_bobot_{saham}"
+            )
+        else:
+            # Tampilkan hasil bobot otomatis secara langsung pada kolom presisi
+            nilai = st.sidebar.number_input(
+                f"Bobot {saham} (%)", 
+                min_value=0.0, 
+                max_value=100.0, 
+                value=round(float(bobot_optimal_persen[idx]), 4), 
+                step=0.01, 
+                format="%.4f",
+                disabled=True,
+                key=f"auto_bobot_{saham}_{mode_bobot}"
+            )
         bobot_input.append(nilai)
 
     total_bobot = sum(bobot_input)
-    if abs(total_bobot - 100.0) > 0.001:
+    if abs(total_bobot - 100.0) > 0.01:
         st.sidebar.warning(f"⚠️ Total bobot saat ini: **{total_bobot:.4f}%**. Disarankan pas 100.00%.")
 
     if total_bobot == 0:
         total_bobot = 1.0
     weights = np.array(bobot_input) / total_bobot
-
-    st.sidebar.subheader("📈 Parameter Kinerja (Benchmark & Rf)")
-    risk_free_rate = st.sidebar.number_input("Bunga Bebas Risiko (Rf - Tahunan)", value=0.06, step=0.001, format="%.4f")
-    market_return = st.sidebar.number_input("Expected Return Pasar (Rm - Tahunan)", value=0.10, step=0.001, format="%.4f")
 
 else:
     # Data Dummy untuk Beranda agar halaman Home tetap bisa dimuat tanpa error
@@ -268,7 +365,7 @@ else:
 
 WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25", "#E6CCB2"]
 
-# Perhitungan Analisis
+# Perhitungan Analisis Akhir
 jumlah_baris_data = len(df_harga_display)
 df_return = df_harga_display.pct_change().fillna(0)
 df_return_stats = df_harga_display.pct_change().dropna()
@@ -415,6 +512,9 @@ else:
 
     # --- SHEET 6: RETURN PORTOFOLIO & KINERJA ---
     st.header("6️⃣ Sheet 6: Return Portofolio, Risiko, & Metrik Kinerja (Sharpe, Treynor, Alpha)")
+
+    if "Otomatis" in mode_bobot:
+        st.info(f"🤖 **Mode Optimasi Aktif:** `{mode_bobot}` — Proporsi bobot di bawah ini telah dihitung otomatis untuk memaksimalkan kinerja tersebut.")
 
     col_m1, col_m2, col3 = st.columns(3)
     col_m1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
