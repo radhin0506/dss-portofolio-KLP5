@@ -7,6 +7,12 @@ import yfinance as yf
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
 
+# --- TAG HTML VERIFIKASI GOOGLE SEARCH CONSOLE ---
+st.markdown(
+    '<meta name="google-site-verification" content="MASUKKAN_KODE_UNIK_DARI_GOOGLE_DISINI" />', 
+    unsafe_allow_html=True
+)
+
 # --- KUSTOMISASI CSS WARNA PASTEL COKLAT (EARTH TONE) ---
 st.markdown("""
 <style>
@@ -83,10 +89,8 @@ def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="shar
     np.random.seed(42)
     n_aset = len(mean_ret)
     
-    # Hasilkan kombinasi bobot acak (Dirichlet distribution memastikan jumlah bobot = 1.0)
     w_acak = np.random.dirichlet(np.ones(n_aset), size=n_simulasi)
     
-    # Hitung return & risiko tahunan/skala untuk seluruh simulasi sekaligus (vektorisasi cepat)
     port_ret = np.dot(w_acak, mean_ret) * faktor
     port_var = np.sum(np.dot(w_acak, cov_mat) * w_acak, axis=1)
     port_std = np.sqrt(port_var) * np.sqrt(faktor)
@@ -95,13 +99,12 @@ def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="shar
     if target == "sharpe":
         skor = np.where(port_std != 0, (port_ret - rf) / port_std, -np.inf)
     elif target == "treynor":
-        # Hindari pembagian beta negatif ekstrem yang bisa mendistorsi
         skor = np.where(port_beta_sim > 0.05, (port_ret - rf) / port_beta_sim, -np.inf)
     else:  # jensen's alpha
         skor = port_ret - (rf + port_beta_sim * (rm - rf))
         
     idx_terbaik = np.argmax(skor)
-    return w_acak[idx_terbaik] * 100.0  # Kembalikan dalam bentuk persentase (%)
+    return w_acak[idx_terbaik] * 100.0
 
 # --- 2. SIDEBAR: NAVIGASI MENU ---
 st.sidebar.header("🧭 Navigasi Menu")
@@ -267,7 +270,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
 
     saham_terpilih_list = list(df_harga_display.columns)
 
-    # Hitung statistik awal sebelum penentuan bobot otomatis
     df_return_temp = df_harga_display.pct_change().dropna()
     if df_return_temp.empty:
         df_return_temp = df_harga_display.pct_change().fillna(0)
@@ -332,7 +334,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                 key=f"manual_bobot_{saham}"
             )
         else:
-            # Tampilkan hasil bobot otomatis secara langsung pada kolom presisi
             nilai = st.sidebar.number_input(
                 f"Bobot {saham} (%)", 
                 min_value=0.0, 
@@ -408,7 +409,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
     
     st.info(
         "💡 **Tentang Aplikasi:** Aplikasi web ini dirancang khusus untuk membantu pengambil keputusan "
-        "dalam merancang, mengukur risiko, menghitung return, serta mengevaluasi kinerja portofolio saham syariah "
+        "dalam merancang, merumuskan risiko, menghitung return, serta mengevaluasi kinerja portofolio saham syariah "
         "secara komprehensif berdasarkan kaidah portofolio Modern Markowitz."
     )
     
@@ -460,8 +461,13 @@ else:
     df_sheet2.insert(0, "No", range(1, len(df_sheet2) + 1))
     st.dataframe(df_sheet2.style.format({"No": "{:.0f}", **{c: "{:.6f}" for c in saham_terpilih_list}}), use_container_width=True)
 
-    st.markdown("**Expected Return (ER) Masing-masing Emiten (Rata-rata Return):**")
-    st.json({col: f"{val:.6f}" for col, val in mean_return_stats.items()})
+    st.markdown("**Expected Return (ER) Masing-masing Emiten:**")
+    df_er_table = pd.DataFrame({
+        "Emiten": saham_terpilih_list,
+        "Expected Return (Desimal)": mean_return_stats.values,
+        "Expected Return (%)": [f"{val * 100:.4f}%" for val in mean_return_stats.values]
+    })
+    st.dataframe(df_er_table.style.format({"Expected Return (Desimal)": "{:.6f}"}), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 2 (Return Realisasi & ER)", expanded=True):
         st.markdown(
