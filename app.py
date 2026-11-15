@@ -85,7 +85,7 @@ DAFTAR_SAHAM_JII = {
     "WIFI.JK": "WIFI - Solusi Sinergi Digital Tbk. (Teknologi)"
 }
 
-# --- 2. SIDEBAR: PENGATURAN DINAMIS ---
+# --- 2. SIDEBAR: PENGATURAN DINAMIS & FILTER TANGGAL SPESIFIK ---
 st.sidebar.header("⚙️ Pengaturan Portofolio JII")
 
 saham_terpilih = st.sidebar.multiselect(
@@ -99,14 +99,32 @@ if len(saham_terpilih) < 2:
     st.warning("⚠️ Silakan pilih minimal **2 saham JII** di menu sebelah kiri untuk membentuk portofolio syariah.")
     st.stop()
 
-rentang_waktu = st.sidebar.selectbox(
-    "2. Rentang Data Historis:",
-    options=["1 Tahun", "2 Tahun", "3 Tahun", "5 Tahun"],
-    index=1
+# Pilihan Mode Rentang Waktu (Bisa Pilih Custom Tanggal atau Tahun Spesifik)
+pilihan_mode_waktu = st.sidebar.radio(
+    "2. Mode Filter Waktu:",
+    options=["Rentang Tanggal Custom", "Pilih Tahun Spesifik"]
 )
-mapping_tahun = {"1 Tahun": 1, "2 Tahun": 2, "3 Tahun": 3, "5 Tahun": 5}
-jumlah_tahun = mapping_tahun[rentang_waktu]
 
+if pilihan_mode_waktu == "Pilih Tahun Spesifik":
+    tahun_pilihan = st.sidebar.selectbox("Pilih Tahun:", options=[2026, 2025, 2024, 2023, 2022], index=0)
+    tanggal_mulai = pd.to_datetime(f"{tahun_pilihan}-01-01")
+    tanggal_selesai = pd.to_datetime(f"{tahun_pilihan}-12-31")
+    # Karena tahun 2026 masih berjalan (hari ini 15 Nov 2026), batasi tanggal selesai sampai hari ini jika memilih tahun berjalan
+    if tahun_pilihan == 2026:
+        tanggal_selesai = pd.Timestamp.today()
+    periode_yf = "max" # Tarik data maksimal agar aman untuk difilter
+else:
+    rentang_tanggal = st.sidebar.date_input(
+        "Pilih Rentang Tanggal Mulai & Akhir:",
+        value=(pd.to_datetime("2026-01-01"), pd.Timestamp.today().date())
+    )
+    if len(rentang_tanggal) == 2:
+        tanggal_mulai, tanggal_selesai = pd.to_datetime(rentang_tanggal[0]), pd.to_datetime(rentang_tanggal[1])
+    else:
+        tanggal_mulai, tanggal_selesai = pd.to_datetime("2026-01-01"), pd.Timestamp.today()
+    periode_yf = "max"
+
+# Pilihan Frekuensi Perhitungan
 periode_hitung = st.sidebar.selectbox(
     "3. Pilih Frekuensi Perhitungan:",
     options=["Harian", "Mingguan", "Bulanan", "Tahunan"]
@@ -114,7 +132,7 @@ periode_hitung = st.sidebar.selectbox(
 
 periode_yf = f"{jumlah_tahun}y"
 
-# --- 3. MENGAMBIL DATA REAL-TIME ---
+# --- 3. MENGAMBIL DATA & FILTER BERDASARKAN TANGGAL PILIHAN ---
 @st.cache_data(ttl=3600)
 def ambil_data_saham(tickers, period):
     df_download = yf.download(tickers, period=period, progress=False)
@@ -137,6 +155,9 @@ if df_raw.empty:
 df_raw = df_raw[saham_terpilih]
 df_raw.index = pd.to_datetime(df_raw.index)
 
+# FILTER TANGGAL PRESISI SESUAI PILIHAN USER (Misal: 1 Jan 2026 s.d. Seterusnya)
+df_filtered = df_raw[(df_raw.index >= tanggal_mulai) & (df_raw.index <= tanggal_selesai)]
+
 aturan_periode = {
     "Harian": {"faktor": 252, "ket": "Hari bursa aktif"},
     "Mingguan": {"rule": "W-FRI", "faktor": 52, "ket": "Setiap akhir minggu (Jumat)"},
@@ -147,14 +168,13 @@ aturan_periode = {
 faktor_waktu = aturan_periode[periode_hitung]["faktor"]
 
 if periode_hitung == "Harian":
-    df_harga = df_raw.dropna()
+    df_harga = df_filtered.dropna()
 else:
     rule_terpilih = aturan_periode[periode_hitung]["rule"]
-    df_harga = df_raw.resample(rule_terpilih).last().dropna()
+    df_harga = df_filtered.resample(rule_terpilih).last().dropna()
 
 df_harga_display = df_harga.copy()
 df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
-
 df_return = df_harga_display.pct_change().fillna(0)
 mean_return = df_return.mean()
 cov_matrix = df_return.cov()
