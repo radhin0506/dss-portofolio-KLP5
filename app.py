@@ -81,14 +81,14 @@ menu_pilihan = st.sidebar.radio(
 # Beranda: 2 Warna (Pastel Pink + Pastel Biru)
 # Analisis Sheet: 3 Warna (Pastel Peach + Pastel Hijau + Pastel Ungu)
 if menu_pilihan == "🏠 Beranda (Home)":
-    bg_utama = "#FFF0F5"      # Pastel Pink (Lavender Blush)
-    bg_sidebar = "#E6F2FA"    # Pastel Biru (Alice/Baby Blue)
+    bg_utama = "#FFF0F5"      # Pastel Pink
+    bg_sidebar = "#E6F2FA"    # Pastel Biru
     bg_aksen = "#D9ECFA"      # Aksen Biru Lembut
     border_aksen = "#B8D8F0"
 else:
     bg_utama = "#FFF3E6"      # Pastel Peach
-    bg_sidebar = "#E8F6EF"    # Pastel Hijau (Mint)
-    bg_aksen = "#EFE9FA"      # Pastel Ungu (Lavender)
+    bg_sidebar = "#E8F6EF"    # Pastel Hijau
+    bg_aksen = "#EFE9FA"      # Pastel Ungu
     border_aksen = "#D5C6F0"
 
 st.markdown(f"""
@@ -204,4 +204,134 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                 value=(pd.to_datetime("2026-01-01"), pd.Timestamp.today().date())
             )
             if len(rentang_tanggal) == 2:
-                tanggal_mulai, tanggal_selesai = pd.to_datetime(rentang_tanggal[0]), pd.
+                tanggal_mulai = pd.to_datetime(rentang_tanggal[0])
+                tanggal_selesai = pd.to_datetime(rentang_tanggal[1])
+            else:
+                tanggal_mulai = pd.to_datetime("2026-01-01")
+                tanggal_selesai = pd.Timestamp.today()
+            periode_yf = "max"
+
+        periode_hitung = st.sidebar.selectbox(
+            "3. Pilih Frekuensi Perhitungan:",
+            options=["Mingguan", "Harian", "Bulanan", "Tahunan"]
+        )
+
+        aturan_periode = {
+            "Harian": {"faktor": 252, "label_faktor": "252 hari bursa"},
+            "Mingguan": {"faktor": 52, "label_faktor": "52 minggu"},
+            "Bulanan": {"faktor": 12, "label_faktor": "12 bulan"},
+            "Tahunan": {"faktor": 1, "label_faktor": "1 tahun"}
+        }
+
+        faktor_waktu = aturan_periode[periode_hitung]["faktor"]
+        label_faktor_teks = aturan_periode[periode_hitung]["label_faktor"]
+
+        if len(saham_terpilih) >= 2:
+            @st.cache_data(ttl=3600)
+            def ambil_data_saham(tickers, period):
+                df_download = yf.download(tickers, period=period, progress=False)
+                if isinstance(df_download.columns, pd.MultiIndex):
+                    data = df_download["Close"]
+                else:
+                    data = df_download[["Close"]] if "Close" in df_download.columns else df_download
+
+                if isinstance(data, pd.Series):
+                    data = data.to_frame(name=tickers[0])
+                return data.dropna()
+
+            with st.spinner("Mengambil data real-time saham JII dari Yahoo Finance..."):
+                df_raw = ambil_data_saham(saham_terpilih, periode_yf)
+
+            if df_raw.empty:
+                df_raw = yf.download(saham_terpilih, period="2y", progress=False)["Close"]
+
+            df_raw = df_raw[saham_terpilih]
+            df_raw.index = pd.to_datetime(df_raw.index)
+            df_filtered = df_raw[(df_raw.index >= tanggal_mulai) & (df_raw.index <= tanggal_selesai)]
+
+            if df_filtered.empty:
+                df_filtered = df_raw.tail(100)
+
+            if periode_hitung == "Harian":
+                df_harga = df_filtered.dropna()
+            else:
+                rule_map = {"Mingguan": "W-FRI", "Bulanan": "ME", "Tahunan": "YE"}
+                df_harga = df_filtered.resample(rule_map.get(periode_hitung, "W-FRI")).last().dropna()
+
+            df_harga_display = df_harga.copy()
+            df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
+
+    # Validasi jika data belum siap
+    if df_harga_display is None or df_harga_display.empty:
+        st.warning("⚠️ Silakan pilih minimal **2 saham JII** atau unggah file data Anda terlebih dahulu di menu sebelah kiri.")
+        st.stop()
+
+    if sumber_data == "Upload File Sendiri (Excel/CSV)":
+        periode_hitung = "Data Upload Mandiri"
+        jumlah_baris_data = len(df_harga_display)
+        
+        pilihan_skala = st.sidebar.selectbox(
+            "Pilih Penyesuaian Skala Waktu:",
+            options=[
+                "Gunakan Nilai Per Periode Murni (Faktor = 1)",
+                f"Sesuaikan dengan Jumlah Data ({jumlah_baris_data} baris setara 1 Tahun)",
+                "Setahun Penuh (Faktor Standar 52 Minggu)",
+                "Atur Faktor Manual"
+            ]
+        )
+        if "Faktor = 1" in pilihan_skala or "Nilai Per Periode" in pilihan_skala:
+            faktor_waktu = 1.0
+            label_faktor_teks = f"1 (Periode murni dari {jumlah_baris_data} data)"
+        elif "52 Minggu" in pilihan_skala:
+            faktor_waktu = 52.0
+            label_faktor_teks = "52 minggu (standar tahunan)"
+        else:
+            faktor_waktu = st.sidebar.number_input("Masukkan Angka Faktor Pengali Custom:", value=1.0, step=0.5)
+            label_faktor_teks = f"Custom ({faktor_waktu})"
+
+    saham_terpilih_list = list(df_harga_display.columns)
+
+    df_return_temp = df_harga_display.pct_change().dropna()
+    if df_return_temp.empty:
+        df_return_temp = df_harga_display.pct_change().fillna(0)
+    mean_ret_temp = df_return_temp.mean().values
+    cov_mat_temp = df_return_temp.cov().values
+
+    market_proxy_temp = df_return_temp.mean(axis=1)
+    market_var_temp = market_proxy_temp.var()
+    if market_var_temp == 0:
+        market_var_temp = 0.0020
+    beta_temp = []
+    for col in df_return_temp.columns:
+        cov_val = pd.concat([df_return_temp[col], market_proxy_temp], axis=1).cov().iloc[0, 1]
+        beta_temp.append(cov_val / market_var_temp if market_var_temp != 0 else 1.0)
+    beta_temp = np.array(beta_temp)
+
+    # --- SIDEBAR: PARAMETER KINERJA (BENCHMARK & RF) ---
+    st.sidebar.subheader("📈 Parameter Kinerja (Benchmark & Rf)")
+    risk_free_rate = st.sidebar.number_input("Bunga Bebas Risiko (Rf - Tahunan)", value=0.06, step=0.001, format="%.4f")
+    market_return = st.sidebar.number_input("Expected Return Pasar (Rm - Tahunan)", value=0.10, step=0.001, format="%.4f")
+
+    # --- SIDEBAR: BOBOT DESIMAL & OPTIMASI OTOMATIS ---
+    st.sidebar.subheader("⚖️ Atur Bobot Investasi (%)")
+    mode_bobot = st.sidebar.radio(
+        "Metode Penentuan Bobot:",
+        options=[
+            "Manual (Desimal spesifik)",
+            "Bobot Berimbang (Equal Weight)",
+            "Otomatis: Maksimum Sharpe Ratio",
+            "Otomatis: Maksimum Treynor Ratio",
+            "Otomatis: Maksimum Jensen's Alpha"
+        ]
+    )
+
+    jumlah_saham = len(saham_terpilih_list)
+    default_bobot_satuan = round(100.0 / jumlah_saham, 4)
+
+    if mode_bobot == "Otomatis: Maksimum Sharpe Ratio":
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="sharpe")
+        st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Sharpe Ratio tertinggi**!")
+    elif mode_bobot == "Otomatis: Maksimum Treynor Ratio":
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="treynor")
+        st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Treynor Ratio tertinggi**!")
+    elif mode_bobot == "Otomatis: Maksimum Jensen's Alpha":
