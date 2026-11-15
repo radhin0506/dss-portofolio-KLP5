@@ -261,34 +261,4 @@ df_statistik = pd.DataFrame({
     f"Varians ({periode_hitung})": df_return_stats.var(),
     f"Std. Deviasi / Risiko ({periode_hitung})": df_return_stats.std(),
     "Expected Return (Tahunan)": mean_return_stats * faktor_waktu,
-    "Risiko / Volatilitas (Tahunan)": df_return_stats.std() * np.sqrt(faktor_waktu)
-})
-st.dataframe(df_statistik.style.format("{:.4f}"), use_container_width=True)
-
-with st.expander("💡 Penjelasan & Dari Mana Angka Ini Didapat - Sheet 3 (Statistik & Risiko)", expanded=True):
-    st.markdown(f"""
-    * **Sumber Angka:** Diolah dari tabel Return di Sheet 2 menggunakan rumus statistik standar keuangan.
-    * **Cara Hitung:**
-      * **Mean Return (Rata-rata):** Menjumlahkan seluruh return lalu dibagi jumlah periode.
-      * **Std. Deviasi (Risiko per periode):** Mengukur seberapa besar naik-turunnya fluktuasi harga saham.
-      * **Expected Return Tahunan:** Mean Return dikalikan dengan **Faktor Waktu ({faktor_waktu})** (misal dikali 12 jika bulanan, atau dikali 252 jika harian).
-      * **Risiko Tahunan:** Standar deviasi dikalikan dengan akar kuadrat dari Faktor Waktu ($\sqrt{{Faktor}}$).
-    """)
-
-# --- SHEET 4: MATRIKS KOVARIANS ---
-st.header("4️⃣ Sheet Matriks Kovarians (Covariance Matrix)")
-st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
-
-with st.expander("💡 Penjelasan & Dari Mana Angka Ini Didapat - Sheet 4 (Matriks Kovarians)", expanded=True):
-    st.markdown("""
-    * **Sumber Angka:** Dihitung dengan membandingkan pola pergerakan naik-turun antar dua saham secara bersamaan (misal saham A terhadap saham B).
-    * **Cara Hitung:** Menggunakan rumus statistik kovarians sampel. Jika hasilnya **negatif**, artinya kedua saham sering bergerak berlawanan arah, yang mana sangat bagus untuk menekan risiko gabungan portofolio (diversifikasi).
-    """)
-
-# --- SHEET 5: EVALUASI, GRAFIK & KEPUTUSAN ---
-st.header("5️⃣ Sheet Evaluasi Portofolio & Saran Pengambilan Bobot")
-
-port_return_periode = np.sum(mean_return_stats * weights)
-port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_stats, weights)))
-port_return_tahunan = port_return_periode * faktor_waktu
-port_std_tahunan = port_std_periode * np.sqrt(faktor_
+    "Risiko / Volatilitas
