@@ -216,15 +216,14 @@ WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25"
 st.header(f"1️⃣ Sheet Data Harga Penutupan Saham JII ({periode_hitung})")
 st.dataframe(df_harga_display.style.format("Rp {:,.0f}"), use_container_width=True)
 
-# Ambil contoh angka baris terakhir untuk penjelasan riil
 contoh_saham_satu = df_harga_display.columns[0]
 harga_baris_akhir = df_harga_display[contoh_saham_satu].iloc[-1]
 harga_baris_sebelumnya = df_harga_display[contoh_saham_satu].iloc[-2]
 
 with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 1 (Data Harga)", expanded=True):
     st.markdown(f"""
-    * **Konsep & Rumus:** Sheet ini menarik data harga penutupan (*Close Price*) riil harian, mingguan, bulanan, atau tahunan dari API `yfinance` berdasarkan konstituen Jakarta Islamic Index (JII).
-    * **Padanan Excel:** Menggunakan fungsi referensi data langsung dari tabel database bursa atau `VLOOKUP` / `INDEX-MATCH`.
+    * **Konsep & Rumus:** Sheet ini menarik data harga penutupan (Close Price) riil dari API `yfinance` berdasarkan konstituen Jakarta Islamic Index (JII).
+    * **Padanan Excel:** Menggunakan fungsi referensi data langsung dari database bursa atau `VLOOKUP` / `INDEX-MATCH`.
     * **Contoh Angka Riil pada Portofolio Anda:**
       * Harga penutupan saham **{contoh_saham_satu}** pada periode sebelumnya adalah **Rp {harga_baris_sebelumnya:,.0f}**.
       * Harga penutupan pada periode terakhir tercatat sebesar **Rp {harga_baris_akhir:,.0f}**.
@@ -239,12 +238,11 @@ contoh_return_val = df_return[contoh_saham_satu].iloc[-1]
 with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 2 (Return)", expanded=True):
     st.markdown(f"""
     * **Rumus Matematika:** 
-      $$R_t = \\frac{P_t - P_{t-1}}{P_{t-1}}$$
-      *(Dimana $P_t$ adalah harga saat ini dan $P_{t-1}$ adalah harga periode sebelumnya).*
+      Return (Rt) = ( Harga Sekarang - Harga Sebelumnya ) / Harga Sebelumnya
     * **Padanan Rumus Excel:** `=(B3 - B2) / B2`
     * **Contoh Angka Riil pada Portofolio Anda:**
       * Perhitungan untuk saham **{contoh_saham_satu}**: 
-        $$\\frac{{{harga_baris_akhir:,.0f} - {harga_baris_sebelumnya:,.0f}}}{{{harga_baris_sebelumnya:,.0f}}} = {contoh_return_val:.4\%}$$
+        ( {harga_baris_akhir:,.0f} - {harga_baris_sebelumnya:,.0f} ) / {harga_baris_sebelumnya:,.0f} = **{contoh_return_val:.4%}**
     * **📌 Kesimpulan Sheet 2:** Menunjukkan persentase keuntungan atau kerugian pada setiap titik waktu dengan cakupan data yang penuh.
     """)
 
@@ -273,17 +271,16 @@ contoh_ann_std = contoh_std * np.sqrt(faktor_waktu)
 with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 3 (Statistik & Risiko)", expanded=True):
     st.markdown(f"""
     * **Rumus Matematika:**
-      * **Rata-rata Return ($\\mu$):** `AVERAGE(R_1, R_2, ... , R_n)`
-      * **Varians ($\\sigma^2$):** `VAR.S(R_1, R_2, ... , R_n)`
-      * **Standar Deviasi / Risiko ($\\sigma$):** `STDEV.S(R_1, R_2, ... , R_n)`
-      * **Annualisasi Return:** $\\mu \\times \\text{{Faktor Waktu}} (\\text{{Faktor}} = {faktor_waktu})$
-      * **Annualisasi Risiko:** $\\sigma \\times \\sqrt{{\\text{{Faktor Waktu}}}}$
+      * **Rata-rata Return (Mean):** Total seluruh return dibagi jumlah periode (n).
+      * **Standar Deviasi (Risiko):** Akar kuadrat dari varians untuk mengukur tingkat fluktuasi harga.
+      * **Annualisasi Return:** Mean Return dikali Faktor Waktu ({faktor_waktu}).
+      * **Annualisasi Risiko:** Standar Deviasi dikali akar kuadrat dari Faktor Waktu.
     * **Padanan Rumus Excel:** `=AVERAGE( range )`, `=STDEV.S( range )`
     * **Contoh Angka Riil pada Saham {contoh_saham_satu}:**
       * Mean Return per periode = `{contoh_mean:.4f}`
       * Risiko (Standar Deviasi) per periode = `{contoh_std:.4f}`
-      * **Expected Return Tahunan:** `{contoh_mean:.4f} \\times {faktor_waktu} = {contoh_ann_return:.2%}`
-      * **Risiko Tahunan:** `{contoh_std:.4f} \\times \\sqrt{{{faktor_waktu}}} = {contoh_ann_std:.2%}`
+      * **Expected Return Tahunan:** `{contoh_mean:.4f} x {faktor_waktu} = {contoh_ann_return:.2%}`
+      * **Risiko Tahunan:** `{contoh_std:.4f} x akar({faktor_waktu}) = {contoh_ann_std:.2%}`
     * **📌 Kesimpulan Sheet 3:** Memberikan gambaran tingkat pengembalian tahunan serta besaran volatilitas risiko dari masing-masing emiten JII.
     """)
 
@@ -295,8 +292,8 @@ st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
 with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 4 (Matriks Kovarians)", expanded=True):
     st.markdown(f"""
     * **Rumus Matematika:** 
-      $$\\text{{Cov}}(X, Y) = \\frac{{\\sum (X_i - \\bar{{X}})(Y_i - \\bar{{Y}})}}{{n - 1}}$$
-    * **Padanan Rumus Excel:** `=COVARIANCE.S( range_saham_X , range_saham_Y )`
+      Mengukur variasi bersama antara dua variabel acak (saham A dan saham B) untuk melihat arah pergerakan harga bersama.
+    * **Padanan Rumus Excel:** `=COVARIANCE.S( range_saham_A , range_saham_B )`
     * **Contoh Angka Riil:** Matriks di atas menghitung tingkat hubungan arah pergerakan naik/turun antar seluruh pasang emiten pilihan Anda. Nilai negatif menunjukkan korelasi berlawanan arah yang sangat baik untuk diversifikasi penekanan risiko portofolio.
     * **📌 Kesimpulan Sheet 4:** Matriks kovarians ini menjadi dasar utama dalam kalkulasi risiko gabungan portofolio pada sheet berikutnya.
     """)
@@ -320,10 +317,10 @@ with st.expander("📘 Penjelasan Rumus & Contoh Angka Riil - Sheet 5 (Evaluasi 
     
     st.markdown(f"""
     * **Rumus Matematika Portofolio:**
-      * **Expected Return Portofolio ($R_p$):** $\\sum (w_i \\times \\text{{Return}\_i})$
-      * **Risiko Portofolio ($\\sigma_p$):** $\\sqrt{{W^T \\cdot \\text{{Cov}} \\cdot W}}$ *(Perkalian matriks bobot dengan matriks kovarians)*
-      * **Sharpe Ratio (Rasio Efisiensi):** $\\frac{{R_p - R_f}}{{\\sigma_p}}$ *(Mengukur excess return per unit risiko)*
-    * **Padanan Rumus Excel:** Menggunakan `=SUMPRODUCT( bobot_range , return_range )` untuk return, dan perkalian matriks `=MMULT(...)` untuk risiko.
+      * **Expected Return Portofolio (Rp):** Jumlah perkalian bobot setiap saham dengan return tahunannya.
+      * **Risiko Portofolio (Sp):** Kalkulasi matriks perkalian bobot dengan matriks kovarians.
+      * **Sharpe Ratio:** (Return Portofolio - Suku Bunga Bebas Risiko) / Risiko Portofolio.
+    * **Padanan Rumus Excel:** Menggunakan `=SUMPRODUCT(...)` untuk return portofolio dan perkalian matriks `=MMULT(...)` untuk risiko.
     * **Contoh Angka Riil Portofolio Anda:**
       * **Expected Return Tahunan:** **{port_return_tahunan:.2%}**
       * **Risiko Tahunan:** **{port_std_tahunan:.2%}**
@@ -377,4 +374,5 @@ else:
 **Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII (**{daftar_nama_pendek}**), portofolio ini mencatatkan fluktuasi harga tahunan yang tinggi (**{port_std_tahunan:.2%}**). Disarankan bagi investor yang siap menghadapi volatilitas pasar jangka pendek.
 """
 
-st.info(f"**Profil Risiko
+st.info(f"**Profil Risiko Portofolio JII:** {kategori_risiko}")
+st.markdown(deskripsi_keputusan)
