@@ -77,19 +77,17 @@ menu_pilihan = st.sidebar.radio(
     options=["🏠 Beranda (Home)", "📊 Analisis Lengkap (6 Sheet)"]
 )
 
-# --- KUSTOMISASI CSS WARNA PASTEL SESUAI GAMBAR ANDA ---
-# Beranda: 2 Warna (Pastel Pink #FFC5D3 & Pastel Biru #D4EEF9)
-# Analisis Sheet: 3 Warna (Pastel Peach #F8C4B4, Pastel Green #BAED91, Pastel Ungu #D1C4E9)
+# --- KUSTOMISASI CSS KELIMA WARNA PASTEL ---
 if menu_pilihan == "🏠 Beranda (Home)":
-    bg_utama = "#FFC5D3"      # Pastel Pink (Sesuai Gambar)
-    bg_sidebar = "#D4EEF9"    # Pastel Biru (Sesuai Gambar)
-    bg_aksen = "#E8F4FC"      # Aksen Biru Muda
-    border_aksen = "#A8DADC"
+    bg_utama = "#FFC5D3"      # Pastel Pink[cite: 7]
+    bg_sidebar = "#D4EEF9"    # Pastel Biru[cite: 8]
+    bg_aksen = "#FFF0F5"      # Aksen Pink Sangat Muda
+    border_aksen = "#F8BBD0"
 else:
-    bg_utama = "#F8C4B4"      # Pastel Peach (Sesuai Gambar)
-    bg_sidebar = "#BAED91"    # Pastel Green (Sesuai Gambar)
-    bg_aksen = "#D1C4E9"      # Pastel Ungu (Sesuai Gambar)
-    border_aksen = "#B39DDB"
+    bg_utama = "#D1C4E9"      # Pastel Ungu (Utama)[cite: 5]
+    bg_sidebar = "#BAED91"    # Pastel Hijau (Sidebar)[cite: 6]
+    bg_aksen = "#F8C4B4"      # Pastel Peach (Aksen / Expander)[cite: 4]
+    border_aksen = "#FFAB91"
 
 st.markdown(f"""
 <style>
@@ -385,13 +383,13 @@ else:
     }, index=dates)
     saham_terpilih_list = list(df_harga_display.columns)
 
-# Palet Warna Grafik Berdasarkan Gambar Anda (Pink, Biru, Ungu, Peach, Hijau)
+# Palet Warna Grafik 5 Warna Pastel (Pink, Biru, Ungu, Peach, Hijau)
 WARNA_GRAFIK_PASTEL = [
-    "#FFC5D3",  # Pastel Pink
-    "#81D4FA",  # Pastel Biru
-    "#D1C4E9",  # Pastel Ungu
-    "#F8C4B4",  # Pastel Peach
-    "#BAED91"   # Pastel Green
+    "#FFC5D3",  # Pastel Pink[cite: 7]
+    "#81D4FA",  # Pastel Biru[cite: 8]
+    "#D1C4E9",  # Pastel Ungu[cite: 5]
+    "#F8C4B4",  # Pastel Peach[cite: 4]
+    "#BAED91"   # Pastel Green[cite: 6]
 ]
 
 # Perhitungan Analisis Akhir
@@ -587,7 +585,7 @@ else:
 
     plt.clf()
     fig, ax = plt.subplots(figsize=(10, 4))
-    fig.patch.set_facecolor("#F8C4B4")
+    fig.patch.set_facecolor("#D1C4E9")
     ax.set_facecolor("#FFFDFB")
 
     for idx, saham in enumerate(df_norm.columns):
