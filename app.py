@@ -47,7 +47,7 @@ st.markdown("""
 st.title("🕌 Sistem Pendukung Keputusan (DSS) Portofolio Saham Syariah (JII)")
 st.markdown(
     "Aplikasi analisis portofolio syariah lengkap dengan **rumus, angka, penjelasan rinci, dan kesimpulan** "
-    "di setiap 6 Sheet dengan opsi **Data Otomatis (Yahoo Finance)** atau **Upload File Mandiri**."
+    "di setiap 6 Sheet dengan pengaturan bobot desimal spesifik."
 )
 
 # --- 1. DAFTAR RESMI SAHAM JII ---
@@ -202,28 +202,45 @@ mean_return_stats = df_return_stats.mean()
 cov_matrix_stats = df_return_stats.cov()
 std_stats = df_return_stats.std()
 
+# --- SIDEBAR: BOBOT DESIMAL & PARAMETER KINERJA ---
 st.sidebar.subheader("⚖️ Atur Bobot Investasi (%)")
 mode_bobot = st.sidebar.radio(
     "Metode Penentuan Bobot:",
-    options=["Manual (Slider)", "Bobot Berimbang (Equal Weight)"]
+    options=["Manual (Desimal spesifik)", "Bobot Berimbang (Equal Weight)"]
 )
 
 bobot_input = []
+jumlah_saham = len(saham_terpilih_list)
+default_bobot_satuan = round(100.0 / jumlah_saham, 4)
+
 for saham in saham_terpilih_list:
-    val_default = int(round(100 / len(saham_terpilih_list)))
     if mode_bobot == "Bobot Berimbang (Equal Weight)":
-        val_default = int(round(100 / len(saham_terpilih_list)))
-    nilai = st.sidebar.slider(f"Bobot {saham} (%)", min_value=0, max_value=100, value=val_default)
+        val = default_bobot_satuan
+    else:
+        val = default_bobot_satuan
+    
+    # Menggunakan number_input agar bisa spesifik sampai belakang koma (format %.4f)
+    nilai = st.sidebar.number_input(
+        f"Bobot {saham} (%)", 
+        min_value=0.0, 
+        max_value=100.0, 
+        value=val, 
+        step=0.01, 
+        format="%.4f"
+    )
     bobot_input.append(nilai)
 
 total_bobot = sum(bobot_input)
+if abs(total_bobot - 100.0) > 0.001:
+    st.sidebar.warning(f"⚠️ Total bobot saat ini: **{total_bobot:.4f}%**. Disarankan total bobot pas 100.00%.")
+
 if total_bobot == 0:
-    total_bobot = 1
+    total_bobot = 1.0
 weights = np.array(bobot_input) / total_bobot
 
 st.sidebar.subheader("📈 Parameter Kinerja (Benchmark & Rf)")
-risk_free_rate = st.sidebar.number_input("Bunga Bebas Risiko (Rf - Tahunan)", value=0.06, step=0.005, format="%.3f")
-market_return = st.sidebar.number_input("Expected Return Pasar (Rm - Tahunan)", value=0.10, step=0.005, format="%.3f")
+risk_free_rate = st.sidebar.number_input("Bunga Bebas Risiko (Rf - Tahunan)", value=0.06, step=0.001, format="%.4f")
+market_return = st.sidebar.number_input("Expected Return Pasar (Rm - Tahunan)", value=0.10, step=0.001, format="%.4f")
 
 WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25", "#E6CCB2"]
 
@@ -241,7 +258,7 @@ else:
     df_sheet1.rename(columns={df_sheet1.columns[0]: 'Periode/Tanggal'}, inplace=True)
 
 df_sheet1.insert(0, "No", range(1, len(df_sheet1) + 1))
-st.dataframe(df_sheet1.style.format({"No": "{:.0f}", **{c: "Rp {:,.0f}" for c in saham_terpilih_list}}), use_container_width=True)
+st.dataframe(df_sheet1.style.format({"No": "{:.0f}", **{c: "Rp {:,.2f}" for c in saham_terpilih_list}}), use_container_width=True)
 
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 1 (Data Harga Close)", expanded=True):
     st.markdown(
@@ -339,7 +356,7 @@ jensen_alpha = port_return_skala - (risk_free_rate + port_beta * (market_return 
 col_m1, col_m2, col3 = st.columns(3)
 col_m1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
 col_m2.metric("Risiko Portofolio", f"{port_std_skala:.2%}")
-col3.metric("Beta Portofolio", f"{port_beta:.2f}")
+col3.metric("Beta Portofolio", f"{port_beta:.4f}")
 
 col_m4, col_m5, col_m6 = st.columns(3)
 col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
@@ -352,7 +369,7 @@ df_port_summary = pd.DataFrame({
     "Expected Return": mean_return_stats.values,
     "Kontribusi Return": (mean_return_stats.values * weights)
 })
-st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.2f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
+st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
 
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
     st.markdown(
