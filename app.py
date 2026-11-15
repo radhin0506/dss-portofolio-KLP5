@@ -7,6 +7,18 @@ import yfinance as yf
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
 
+# --- TARUH KODE INI DI SINI ---
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stToolbar"] {visibility: hidden !important;}
+    .stDeployButton {visibility: hidden;}
+    </style>
+"""
+
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- TAG HTML VERIFIKASI GOOGLE SEARCH CONSOLE ---
 st.markdown(
     '<meta name="google-site-verification" content="MASUKKAN_KODE_UNIK_DARI_GOOGLE_DISINI" />', 
