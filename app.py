@@ -77,16 +77,16 @@ menu_pilihan = st.sidebar.radio(
     options=["🏠 Beranda (Home)", "📊 Analisis Lengkap (6 Sheet)"]
 )
 
-# --- KUSTOMISASI CSS WARNA PASTEL (BG UTAMA = PEACH, TAG EMITEN = UNGU) ---
+# --- KUSTOMISASI CSS KELIMA WARNA PASTEL SESUAI PERMINTAAN ---
 if menu_pilihan == "🏠 Beranda (Home)":
-    bg_utama = "#FFC5D3"      # Pastel Pink[cite: 7]
-    bg_sidebar = "#D4EEF9"    # Pastel Biru[cite: 8]
+    bg_utama = "#FFC5D3"      # Pastel Pink[cite: 6]
+    bg_sidebar = "#D4EEF9"    # Pastel Biru[cite: 7]
     bg_aksen = "#FFF0F5"      
     border_aksen = "#F8BBD0"
 else:
-    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach[cite: 4]
-    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau[cite: 6]
-    bg_aksen = "#D1C4E9"      # Aksen Pendukung[cite: 5]
+    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach[cite: 3]
+    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau[cite: 5]
+    bg_aksen = "#D1C4E9"      # Aksen / Expander: Pastel Ungu[cite: 4]
     border_aksen = "#B39DDB"
 
 st.markdown(f"""
@@ -116,15 +116,21 @@ st.markdown(f"""
         color: #2C2C2C !important;
     }}
 
-    /* Paksa override warna tag pilihan emiten (multiselect pill) menjadi ungu pastel */
+    /* Kustomisasi Kotak Tag (Pill) Emiten Menjadi Ungu Pastel dengan Font Jelas */
     span[data-baseweb="tag"], 
     div[data-baseweb="tag"],
     [data-baseweb="tag"] {{
-        background-color: #D1C4E9 !important;
+        background-color: #D1C4E9 !important; /* Pastel Ungu[cite: 4] */
         background: #D1C4E9 !important;
-        color: #2C2C2C !important;
         border-color: #B39DDB !important;
         border-radius: 6px !important;
+    }}
+
+    span[data-baseweb="tag"] span, 
+    div[data-baseweb="tag"] span,
+    [data-baseweb="tag"] * {{
+        color: #2C2C2C !important;
+        font-weight: 500 !important;
     }}
 
     .streamlit-expanderHeader {{
@@ -394,13 +400,13 @@ else:
     }, index=dates)
     saham_terpilih_list = list(df_harga_display.columns)
 
-# Palet Warna Grafik 5 Warna Pastel (Pink, Biru, Ungu, Peach, Hijau)
+# Menggunakan 5 Warna Pastel Anda untuk Garis Grafik
 WARNA_GRAFIK_PASTEL = [
-    "#FFC5D3",  # Pastel Pink[cite: 7]
-    "#81D4FA",  # Pastel Biru[cite: 8]
-    "#D1C4E9",  # Pastel Ungu[cite: 5]
-    "#F8C4B4",  # Pastel Peach[cite: 4]
-    "#BAED91"   # Pastel Green[cite: 6]
+    "#FFC5D3",  # Pastel Pink[cite: 6]
+    "#81D4FA",  # Pastel Biru[cite: 7]
+    "#D1C4E9",  # Pastel Ungu[cite: 4]
+    "#F8C4B4",  # Pastel Peach[cite: 3]
+    "#BAED91"   # Pastel Green[cite: 5]
 ]
 
 # Perhitungan Analisis Akhir
