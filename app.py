@@ -52,7 +52,9 @@ DAFTAR_SAHAM_JII = {
 def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="sharpe", n_simulasi=15000):
     np.random.seed(42)
     n_aset = len(mean_ret)
+    
     w_acak = np.random.dirichlet(np.ones(n_aset), size=n_simulasi)
+    
     port_ret = np.dot(w_acak, mean_ret) * faktor
     port_var = np.sum(np.dot(w_acak, cov_mat) * w_acak, axis=1)
     port_std = np.sqrt(port_var) * np.sqrt(faktor)
@@ -62,7 +64,7 @@ def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="shar
         skor = np.where(port_std != 0, (port_ret - rf) / port_std, -np.inf)
     elif target == "treynor":
         skor = np.where(port_beta_sim > 0.05, (port_ret - rf) / port_beta_sim, -np.inf)
-    else:
+    else:  # jensen's alpha
         skor = port_ret - (rf + port_beta_sim * (rm - rf))
         
     idx_terbaik = np.argmax(skor)
@@ -112,6 +114,7 @@ st.markdown(f"""
         color: #2C2C2C !important;
     }}
 
+    /* Kustomisasi Kotak Tag (Pill) Emiten Menjadi Ungu Pastel */
     span[data-baseweb="tag"], 
     div[data-baseweb="tag"],
     [data-baseweb="tag"] {{
@@ -168,47 +171,41 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         uploaded_file = st.sidebar.file_uploader("Unggah file data harga Close (.xlsx / .csv):", type=["xlsx", "csv"])
         if uploaded_file is not None:
             try:
-                # 1. Baca file mentah
+                # Membaca file dengan pembersihan otomatis baris kosong di awal
                 if uploaded_file.name.endswith(".csv"):
-                    df_raw_file = pd.read_csv(uploaded_file)
+                    df_uploaded = pd.read_csv(uploaded_file)
                 else:
-                    df_raw_file = pd.read_excel(uploaded_file)
+                    df_uploaded = pd.read_excel(uploaded_file)
                 
-                # 2. AUTO-CLEANING: Deteksi & Atur Tanggal di Kolom Pertama/Indeks
-                df_clean = df_raw_file.copy()
-                # Cari kolom yang mirip tanggal
-                kolom_tgl_ kandidat = [c for c in df_clean.columns if any(k in str(c).lower() for k in ["tanggal", "date", "time", "periode", "no", "Unnamed: 0"])]
-                
-                if len(kolom_tgl_ kandidat) > 0:
-                    tgl_col = kolom_tgl_ kandidat[0]
-                    df_clean[tgl_col] = pd.to_datetime(df_clean[tgl_col], errors='coerce')
-                    df_clean = df_clean.dropna(subset=[tgl_col])
-                    df_clean = df_clean.set_index(tgl_col)
+                # Otomatis cari kolom tanggal/waktu
+                kolom_tanggal = [c for c in df_uploaded.columns if any(k in str(c).lower() for k in ["tanggal", "date", "time", "periode", "bulan", "tahun"])]
+                if kolom_tanggal:
+                    df_uploaded[kolom_tanggal[0]] = pd.to_datetime(df_uploaded[kolom_tanggal[0]], errors='coerce')
+                    df_uploaded = df_uploaded.dropna(subset=[kolom_tanggal[0]])
+                    df_uploaded = df_uploaded.set_index(kolom_tanggal[0])
                 else:
-                    # Jika tidak ada header, jadikan kolom pertama sebagai indeks tanggal
-                    df_clean.index = pd.to_datetime(df_clean.iloc[:, 0], errors='coerce')
-                    df_clean = df_clean.iloc[:, 1:]
+                    # Jika tidak ada kolom tanggal, jadikan kolom pertama sebagai indeks
+                    df_uploaded.index = pd.to_datetime(df_uploaded.iloc[:, 0], errors='coerce')
+                    df_uploaded = df_uploaded.iloc[:, 1:]
 
-                # 3. AUTO-CLEANING: Bersihkan Simbol Mata Uang ("Rp"), Titik Ribuan, dan Koma Desimal
-                for col in df_clean.columns:
-                    if df_clean[col].dtype == object or str(df_clean[col].dtype).startswith('str'):
-                        df_clean[col] = (
-                            df_clean[col].astype(str)
-                            .str.replace('Rp', '', case=False)
-                            .str.replace('IDR', '', case=False)
-                            .str.replace('.', '', regex=False)     # Hapus titik pemisah ribuan
-                            .str.replace(',', '.', regex=False)    # Ubah koma jadi titik desimal
-                            .str.strip()
-                        )
-                    df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
-
-                # 4. Filter kolom dan baris yang valid (buang kolom kosong/Unnamed)
-                df_clean = df_clean.loc[:, ~df_clean.columns.str.contains('^Unnamed', case=False)]
-                df_harga_display = df_clean.dropna(how='all').dropna(axis=1, how='all')
-
-                st.sidebar.success("✅ File berhasil dibersihkan otomatis tanpa mengubah aslinya!")
+                # Pembersihan nilai angka dari simbol mata uang atau koma
+                df_harga_clean = df_uploaded.select_dtypes(include=[np.number])
+                if df_harga_clean.empty:
+                    # Jika terbaca sebagai teks karena ada simbol (misal 'Rp 2,000'), bersihkan secara manual
+                    df_harga_clean = df_uploaded.apply(lambda col: pd.to_numeric(
+                        col.astype(str).str.replace('Rp', '', case=False)
+                           .str.replace('.', '', regex=False)
+                           .str.replace(',', '.', regex=False)
+                           .str.strip(), errors='coerce'
+                    ))
+                
+                df_harga_display = df_harga_clean.dropna(how='all').dropna(axis=1, how='all')
+                if "No" in df_harga_display.columns:
+                    df_harga_display = df_harga_display.drop(columns=["No"])
+                
+                st.sidebar.success("✅ File berhasil dibersihkan dan dimuat!")
             except Exception as e:
-                st.sidebar.error(f"Gagal memproses file otomatis: {e}")
+                st.sidebar.error(f"Gagal memproses file: {e}")
                 df_harga_display = None
         else:
             st.sidebar.info("👈 Silakan unggah file Excel/CSV Anda.")
@@ -603,7 +600,7 @@ else:
     })
     st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
 
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Kinerja)", expanded=True):
+    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
         st.markdown(
             f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
             f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
