@@ -79,13 +79,13 @@ menu_pilihan = st.sidebar.radio(
 
 # --- KUSTOMISASI CSS WARNA PASTEL (BG UTAMA = PEACH, TAG EMITEN = UNGU) ---
 if menu_pilihan == "🏠 Beranda (Home)":
-    bg_utama = "#FFC5D3"      # Pastel Pink[cite: 7]
-    bg_sidebar = "#D4EEF9"    # Pastel Biru[cite: 8]
+    bg_utama = "#FFC5D3"      # Pastel Pink
+    bg_sidebar = "#D4EEF9"    # Pastel Biru
     bg_aksen = "#FFF0F5"      
     border_aksen = "#F8BBD0"
 else:
-    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach[cite: 4]
-    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau[cite: 6]
+    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach
+    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau
     bg_aksen = "#D1C4E9"      # Aksen Pendukung
     border_aksen = "#B39DDB"
 
@@ -116,11 +116,15 @@ st.markdown(f"""
         color: #2C2C2C !important;
     }}
 
-    /* Mengubah warna tag pilihan emiten (multiselect pill) menjadi ungu pastel */
+    /* Paksa override warna tag pilihan emiten (multiselect pill) menjadi ungu pastel */
+    span[data-baseweb="tag"], 
+    div[data-baseweb="tag"],
     [data-baseweb="tag"] {{
         background-color: #D1C4E9 !important;
+        background: #D1C4E9 !important;
         color: #2C2C2C !important;
-        border-radius: 6px;
+        border-color: #B39DDB !important;
+        border-radius: 6px !important;
     }}
 
     .streamlit-expanderHeader {{
@@ -392,11 +396,11 @@ else:
 
 # Palet Warna Grafik 5 Warna Pastel (Pink, Biru, Ungu, Peach, Hijau)
 WARNA_GRAFIK_PASTEL = [
-    "#FFC5D3",  # Pastel Pink[cite: 7]
-    "#81D4FA",  # Pastel Biru[cite: 8]
-    "#D1C4E9",  # Pastel Ungu[cite: 5]
-    "#F8C4B4",  # Pastel Peach[cite: 4]
-    "#BAED91"   # Pastel Green[cite: 6]
+    "#FFC5D3",  # Pastel Pink
+    "#81D4FA",  # Pastel Biru
+    "#D1C4E9",  # Pastel Ungu
+    "#F8C4B4",  # Pastel Peach
+    "#BAED91"   # Pastel Green
 ]
 
 # Perhitungan Analisis Akhir
@@ -563,44 +567,4 @@ else:
     col_m4, col_m5, col_m6 = st.columns(3)
     col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
     col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
-    col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
-
-    df_port_summary = pd.DataFrame({
-        "Emiten": saham_terpilih_list,
-        "Bobot (%)": [w * 100 for w in weights],
-        "Expected Return": mean_return_stats.values,
-        "Kontribusi Return": (mean_return_stats.values * weights)
-    })
-    st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
-
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
-        st.markdown(
-            f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
-            f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
-            f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
-            f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
-            f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
-            f"**Kesimpulan Keseluruhan Portofolio:**\n"
-            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan tingkat risiko **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
-            f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
-            f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
-        )
-
-    # --- GRAFIK KINERJA ---
-    st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
-    df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
-
-    plt.clf()
-    fig, ax = plt.subplots(figsize=(10, 4))
-    fig.patch.set_facecolor("#F8C4B4")
-    ax.set_facecolor("#FFFDFB")
-
-    for idx, saham in enumerate(df_norm.columns):
-        warna_pilih = WARNA_GRAFIK_PASTEL[idx % len(WARNA_GRAFIK_PASTEL)]
-        ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.4, color=warna_pilih)
-
-    ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
-    ax.set_xlabel("Tanggal")
-    ax.legend(loc="upper left")
-    ax.grid(True, linestyle="--", alpha=0.5)
-    st.pyplot(fig)
+    col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan
