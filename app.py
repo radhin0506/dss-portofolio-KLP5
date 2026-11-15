@@ -7,18 +7,21 @@ import yfinance as yf
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
 
-# --- TARUH KODE INI DI SINI ---
+# --- SEMBUNYIKAN SEMUA MENU & MANAGE APP STREAMLIT ---
 hide_streamlit_style = """
     <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    [data-testid="stToolbar"] {visibility: hidden !important;}
-    .stDeployButton {visibility: hidden;}
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    [data-testid="stToolbar"] {visibility: hidden !important; display: none !important;}
+    .stDeployButton {visibility: hidden !important; display: none !important;}
+    [data-testid="stDecoration"] {visibility: hidden !important;}
+    [data-testid="stStatusWidget"] {visibility: hidden !important;}
+    div[data-testid="stToolbar"] {visibility: hidden !important;}
     </style>
 """
-
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # --- TAG HTML VERIFIKASI GOOGLE SEARCH CONSOLE ---
 st.markdown(
     '<meta name="google-site-verification" content="MASUKKAN_KODE_UNIK_DARI_GOOGLE_DISINI" />', 
@@ -89,16 +92,16 @@ menu_pilihan = st.sidebar.radio(
     options=["🏠 Beranda (Home)", "📊 Analisis Lengkap (6 Sheet)"]
 )
 
-# --- KUSTOMISASI CSS KELIMA WARNA PASTEL SESUAI PERMINTAAN ---
+# --- KUSTOMISASI CSS KELIMA WARNA PASTEL ---
 if menu_pilihan == "🏠 Beranda (Home)":
-    bg_utama = "#FFC5D3"      # Pastel Pink[cite: 6]
-    bg_sidebar = "#D4EEF9"    # Pastel Biru[cite: 7]
+    bg_utama = "#FFC5D3"      # Pastel Pink
+    bg_sidebar = "#D4EEF9"    # Pastel Biru
     bg_aksen = "#FFF0F5"      
     border_aksen = "#F8BBD0"
 else:
-    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach[cite: 3]
-    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau[cite: 5]
-    bg_aksen = "#D1C4E9"      # Aksen / Expander: Pastel Ungu[cite: 4]
+    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach[cite: 4]
+    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau[cite: 6]
+    bg_aksen = "#D1C4E9"      # Aksen / Expander: Pastel Ungu[cite: 5]
     border_aksen = "#B39DDB"
 
 st.markdown(f"""
@@ -128,11 +131,11 @@ st.markdown(f"""
         color: #2C2C2C !important;
     }}
 
-    /* Kustomisasi Kotak Tag (Pill) Emiten Menjadi Ungu Pastel dengan Font Jelas */
+    /* Kustomisasi Kotak Tag (Pill) Emiten Menjadi Ungu Pastel */
     span[data-baseweb="tag"], 
     div[data-baseweb="tag"],
     [data-baseweb="tag"] {{
-        background-color: #D1C4E9 !important; /* Pastel Ungu[cite: 4] */
+        background-color: #D1C4E9 !important; /* Pastel Ungu[cite: 5] */
         background: #D1C4E9 !important;
         border-color: #B39DDB !important;
         border-radius: 6px !important;
@@ -412,13 +415,13 @@ else:
     }, index=dates)
     saham_terpilih_list = list(df_harga_display.columns)
 
-# Menggunakan 5 Warna Pastel Anda untuk Garis Grafik
+# Palet Warna Grafik 5 Warna Pastel (Pink, Biru, Ungu, Peach, Hijau)
 WARNA_GRAFIK_PASTEL = [
-    "#FFC5D3",  # Pastel Pink[cite: 6]
-    "#81D4FA",  # Pastel Biru[cite: 7]
-    "#D1C4E9",  # Pastel Ungu[cite: 4]
-    "#F8C4B4",  # Pastel Peach[cite: 3]
-    "#BAED91"   # Pastel Green[cite: 5]
+    "#FFC5D3",  # Pastel Pink
+    "#81D4FA",  # Pastel Biru
+    "#D1C4E9",  # Pastel Ungu[cite: 5]
+    "#F8C4B4",  # Pastel Peach[cite: 4]
+    "#BAED91"   # Pastel Green[cite: 6]
 ]
 
 # Perhitungan Analisis Akhir
@@ -485,144 +488,4 @@ if menu_pilihan == "🏠 Beranda (Home)":
         * **6️⃣ Sheet 6: Return Portofolio & Kinerja** — Evaluasi akhir menggunakan Sharpe, Treynor, & Alpha.
         """)
     
-    st.success("👉 Silakan klik menu **Analisis Lengkap (6 Sheet)** di sidebar sebelah kiri untuk mulai mengatur emiten, bobot, dan melihat rincian perhitungannya!")
-
-else:
-    # =====================================================================
-    # ANALISIS LENGKAP 6 SHEET
-    # =====================================================================
-    
-    # --- SHEET 1: HARGA CLOSE ---
-    st.header(f"1️⃣ Sheet 1: Harga Close ({periode_hitung})")
-    df_sheet1 = df_harga_display.reset_index()
-    if 'Tanggal' in df_sheet1.columns:
-        df_sheet1 = df_sheet1.rename(columns={'Tanggal': 'Periode/Tanggal'})
-    else:
-        df_sheet1.rename(columns={df_sheet1.columns[0]: 'Periode/Tanggal'}, inplace=True)
-
-    df_sheet1.insert(0, "No", range(1, len(df_sheet1) + 1))
-    st.dataframe(df_sheet1.style.format({"No": "{:.0f}", **{c: "Rp {:,.2f}" for c in saham_terpilih_list}}), use_container_width=True)
-
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 1 (Data Harga Close)", expanded=True):
-        st.markdown(
-            f"* **Jumlah Data Historis:** Terdeteksi {jumlah_baris_data} baris data.\n"
-            "* **Rumus / Sumber Data:** Harga Penutupan (Close Price) pada periode t\n"
-            "* **Kesimpulan Sheet 1:** Data harga mentah ini berfungsi sebagai pondasi utama seluruh perhitungan."
-        )
-
-    # --- SHEET 2: RETURN REALISASI & ER ---
-    st.header(f"2️⃣ Sheet 2: Return Realisasi & ER ({periode_hitung})")
-    df_sheet2 = df_return.copy().reset_index(drop=True)
-    df_sheet2.insert(0, "No", range(1, len(df_sheet2) + 1))
-    st.dataframe(df_sheet2.style.format({"No": "{:.0f}", **{c: "{:.6f}" for c in saham_terpilih_list}}), use_container_width=True)
-
-    st.markdown("**Expected Return (ER) Masing-masing Emiten:**")
-    df_er_table = pd.DataFrame({
-        "Emiten": saham_terpilih_list,
-        "Expected Return (Desimal)": mean_return_stats.values,
-        "Expected Return (%)": [f"{val * 100:.4f}%" for val in mean_return_stats.values]
-    })
-    st.dataframe(df_er_table.style.format({"Expected Return (Desimal)": "{:.6f}"}), use_container_width=True)
-
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 2 (Return Realisasi & ER)", expanded=True):
-        st.markdown(
-            "* **Rumus Return:** R = (Harga_ini - Harga_lalu) / Harga_lalu\n"
-            "* **Rumus Expected Return (ER):** ER = Total Return / Jumlah Periode (n)\n"
-            "* **Kesimpulan Sheet 2:** Emiten dengan ER positif menunjukkan tren keuntungan yang baik."
-        )
-
-    # --- SHEET 3: VARIANS & STANDAR DEVIASI ---
-    st.header("3️⃣ Sheet 3: Varians & Standar Deviasi")
-    df_sheet3 = pd.DataFrame({
-        "Emiten": saham_terpilih_list,
-        f"Mean Return ({periode_hitung})": mean_return_stats.values,
-        "Variance": df_return_stats.var().values,
-        "Standar Deviasi (Risiko)": std_stats.values,
-        "Expected Return (Skala Waktu)": mean_return_stats.values * faktor_waktu,
-        "Risiko (Skala Waktu)": std_stats.values * np.sqrt(faktor_waktu)
-    })
-    kolom_angka_sheet3 = [f"Mean Return ({periode_hitung})", "Variance", "Standar Deviasi (Risiko)", "Expected Return (Skala Waktu)", "Risiko (Skala Waktu)"]
-    st.dataframe(df_sheet3.style.format({col: "{:.6f}" for col in kolom_angka_sheet3}), use_container_width=True)
-
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 3 (Varians & Standar Deviasi)", expanded=True):
-        st.markdown(
-            f"* **Faktor Skala Waktu Aktif:** {label_faktor_teks} (Faktor = `{faktor_waktu}`)\n"
-            "* **Kesimpulan Sheet 3:** Skala waktu disesuaikan agar angka hasil analisis proporsional dengan jumlah data Anda."
-        )
-
-    # --- SHEET 4: COVARIANCE ---
-    st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
-    st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
-
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 4 (Covariance)", expanded=True):
-        st.markdown(
-            "* **Rumus Kovarians:** Mengukur arah pergerakan bersama antar dua variabel saham.\n"
-            "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi portofolio."
-        )
-
-    # --- SHEET 5: KOEFISIEN KORELASI ---
-    st.header("5️⃣ Sheet 5: Koefisien Korelasi")
-    corr_matrix = df_return_stats.corr()
-    st.dataframe(corr_matrix.style.format("{:.6f}"), use_container_width=True)
-
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 5 (Koefisien Korelasi)", expanded=True):
-        st.markdown(
-            "* **Rumus Koefisien Korelasi (r):** r = Cov(A,B) / (SD_A * SD_B)\n"
-            "* **Kesimpulan Sheet 5:** Pilih emiten dengan korelasi rendah atau negatif untuk diversifikasi optimal."
-        )
-
-    # --- SHEET 6: RETURN PORTOFOLIO & KINERJA ---
-    st.header("6️⃣ Sheet 6: Return Portofolio, Risiko, & Metrik Kinerja (Sharpe, Treynor, Alpha)")
-
-    if "Otomatis" in mode_bobot:
-        st.info(f"🤖 **Mode Optimasi Aktif:** `{mode_bobot}` — Proporsi bobot di bawah ini telah dihitung otomatis untuk memaksimalkan kinerja tersebut.")
-
-    col_m1, col_m2, col3 = st.columns(3)
-    col_m1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
-    col_m2.metric("Risiko Portofolio", f"{port_std_skala:.2%}")
-    col3.metric("Beta Portofolio", f"{port_beta:.4f}")
-
-    col_m4, col_m5, col_m6 = st.columns(3)
-    col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
-    col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
-    col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
-
-    df_port_summary = pd.DataFrame({
-        "Emiten": saham_terpilih_list,
-        "Bobot (%)": [w * 100 for w in weights],
-        "Expected Return": mean_return_stats.values,
-        "Kontribusi Return": (mean_return_stats.values * weights)
-    })
-    st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
-
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
-        st.markdown(
-            f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
-            f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
-            f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
-            f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
-            f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
-            f"**Kesimpulan Keseluruhan Portofolio:**\n"
-            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan tingkat risiko **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
-            f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
-            f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
-        )
-
-    # --- GRAFIK KINERJA ---
-    st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
-    df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
-
-    plt.clf()
-    fig, ax = plt.subplots(figsize=(10, 4))
-    fig.patch.set_facecolor("#F8C4B4")
-    ax.set_facecolor("#FFFDFB")
-
-    for idx, saham in enumerate(df_norm.columns):
-        warna_pilih = WARNA_GRAFIK_PASTEL[idx % len(WARNA_GRAFIK_PASTEL)]
-        ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.4, color=warna_pilih)
-
-    ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
-    ax.set_xlabel("Tanggal")
-    ax.legend(loc="upper left")
-    ax.grid(True, linestyle="--", alpha=0.5)
-    st.pyplot(fig)
+    st.success("👉 Silakan klik menu **Analisis Lengkap (6 Sheet)** di sidebar sebelah kiri untuk mulai mengatur emiten, bob
