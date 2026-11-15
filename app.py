@@ -46,11 +46,11 @@ st.markdown("""
 # --- JUDUL UTAMA APLIKASI ---
 st.title("🕌 Sistem Pendukung Keputusan (DSS) Portofolio Saham Syariah (JII)")
 st.markdown(
-    "Aplikasi analisis portofolio syariah otomatis berdasarkan data real-time **Yahoo Finance (`yfinance`)** "
-    "dengan struktur **6 Sheet** untuk konstituen Jakarta Islamic Index (JII) (**BRIS, CTRA, TLKM**, dll)."
+    "Aplikasi analisis portofolio syariah lengkap dengan **rumus, angka, penjelasan rinci, dan kesimpulan** "
+    "di setiap 6 Sheet untuk konstituen Jakarta Islamic Index (JII) (**BRIS, CTRA, TLKM**, dll)."
 )
 
-# --- 1. DAFTAR RESMI 30 SAHAM KONSTITUEN INDEKS JII ---
+# --- 1. DAFTAR RESMI SAHAM JII ---
 DAFTAR_SAHAM_JII = {
     "BRIS.JK": "BRIS - Bank Syariah Indonesia Tbk.",
     "CTRA.JK": "CTRA - Ciputra Development Tbk.",
@@ -194,7 +194,7 @@ WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25"
 
 
 # =====================================================================
-# STRUKTUR 6 SHEET PERSIS EXCEL
+# STRUKTUR 6 SHEET LENGKAP DENGAN RUMUS, ANGKA, PENJELASAN & KESIMPULAN
 # =====================================================================
 
 # --- SHEET 1: HARGA CLOSE ---
@@ -203,130 +203,7 @@ df_sheet1 = df_harga_display.reset_index()
 df_sheet1.insert(0, "No", range(1, len(df_sheet1) + 1))
 st.dataframe(df_sheet1.style.format({"No": "{:.0f}", **{c: "Rp {:,.0f}" for c in df_harga_display.columns}}), use_container_width=True)
 
-with st.expander("💡 Penjelasan Sederhana - Sheet 1 (Data Harga Close)", expanded=True):
+with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 1 (Data Harga Close)", expanded=True):
     st.markdown("""
-    * **Isi Sheet:** Menampilkan nomor urut, tanggal, dan harga penutupan (*Close*) murni dalam Rupiah untuk setiap emiten JII pilihan.
-    """)
-
-# --- SHEET 2: RETURN REALISASI & ER ---
-st.header(f"2️⃣ Sheet 2: Return Realisasi & ER ({periode_hitung})")
-df_sheet2 = df_return.copy().reset_index(drop=True)
-df_sheet2.insert(0, "No", range(1, len(df_sheet2) + 1))
-st.dataframe(df_sheet2.style.format({"No": "{:.0f}", **{c: "{:.6f}" for c in df_return.columns}}), use_container_width=True)
-
-st.markdown("**Expected Return (ER) Masing-masing Emiten (Rata-rata Return):**")
-st.json({col.replace('.JK', ''): f"{val:.6f}" for col, val in mean_return_stats.items()})
-
-with st.expander("💡 Penjelasan Sederhana - Sheet 2 (Return Realisasi & ER)", expanded=True):
-    st.markdown("""
-    * **Isi Sheet:** Menghitung persentase perubahan harga dari periode sebelumnya ke periode berjalan, ditutup dengan nilai rata-rata Expected Return (ER).
-    """)
-
-# --- SHEET 3: VARIANS & STANDAR DEVIASI ---
-st.header("3️⃣ Sheet 3: Varians & Standar Deviasi")
-df_sheet3 = pd.DataFrame({
-    "Emiten": [c.replace('.JK', '') for c in saham_terpilih],
-    f"Mean Return ({periode_hitung})": mean_return_stats.values,
-    "Variance": df_return_stats.var().values,
-    "Standar Deviasi (Risiko)": std_stats.values,
-    f"Expected Return (Skala Waktu)": mean_return_stats.values * faktor_waktu,
-    f"Risiko (Skala Waktu)": std_stats.values * np.sqrt(faktor_waktu)
-})
-kolom_angka_sheet3 = [f"Mean Return ({periode_hitung})", "Variance", "Standar Deviasi (Risiko)", "Expected Return (Skala Waktu)", "Risiko (Skala Waktu)"]
-st.dataframe(df_sheet3.style.format({col: "{:.6f}" for col in kolom_angka_sheet3}), use_container_width=True)
-
-with st.expander("💡 Penjelasan Sederhana - Sheet 3 (Varians & Standar Deviasi)", expanded=True):
-    st.markdown(f"""
-    * **Varians & Standar Deviasi:** Mengukur tingkat risiko fluktuasi harga saham, disesuaikan dengan faktor waktu (**{label_faktor_teks}** / faktor `{faktor_waktu}`).
-    """)
-
-# --- SHEET 4: COVARIANCE ---
-st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
-st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
-
-with st.expander("💡 Penjelasan Sederhana - Sheet 4 (Covariance)", expanded=True):
-    st.markdown("""
-    * **Isi Sheet:** Matriks kovarians antar emiten untuk melihat arah pergerakan bersama dan efektivitas diversifikasi.
-    """)
-
-# --- SHEET 5: KOEFISIEN KORELASI ---
-st.header("5️⃣ Sheet 5: Koefisien Korelasi")
-corr_matrix = df_return_stats.corr()
-st.dataframe(corr_matrix.style.format("{:.6f}"), use_container_width=True)
-
-with st.expander("💡 Penjelasan Sederhana - Sheet 5 (Koefisien Korelasi)", expanded=True):
-    st.markdown("""
-    * **Isi Sheet:** Nilai korelasi antar emiten (berkisar dari -1 hingga +1) untuk mengukur keeratan hubungan pergerakan harga.
-    """)
-
-# --- SHEET 6: RETURN PORTOFOLIO & KINERJA (SHARPE, TREYNOR, ALPHA JENSEN) ---
-st.header("6️⃣ Sheet 6: Return Portofolio, Risiko, & Metrik Kinerja (Sharpe, Treynor, Alpha)")
-
-port_return_periode = np.sum(mean_return_stats * weights)
-port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_stats, weights)))
-
-port_return_skala = port_return_periode * faktor_waktu
-port_std_skala = port_std_periode * np.sqrt(faktor_waktu)
-
-# Perhitungan Beta Portofolio menggunakan Market Proxy
-market_proxy_return = df_return_stats.mean(axis=1)
-market_variance = market_proxy_return.var()
-if market_variance == 0:
-    market_variance = 0.0020
-
-beta_saham = []
-for col in df_return_stats.columns:
-    cov_val = pd.concat([df_return_stats[col], market_proxy_return], axis=1).cov().iloc[0, 1]
-    beta_i = cov_val / market_variance if market_variance != 0 else 1.0
-    beta_saham.append(beta_i)
-port_beta = np.sum(weights * np.array(beta_saham))
-
-# Perhitungan Metrik Kinerja
-sharpe_ratio = (port_return_skala - risk_free_rate) / port_std_skala if port_std_skala != 0 else 0
-treynor_ratio = (port_return_skala - risk_free_rate) / port_beta if port_beta != 0 else 0
-jensen_alpha = port_return_skala - (risk_free_rate + port_beta * (market_return - risk_free_rate))
-
-# Dashboard Metrik
-col_m1, col_m2, col3 = st.columns(3)
-col_m1.metric(f"Expected Return Portofolio ({periode_hitung})", f"{port_return_skala:.2%}")
-col_m2.metric(f"Risiko Portofolio ({periode_hitung})", f"{port_std_skala:.2%}")
-col3.metric("Beta Portofolio", f"{port_beta:.2f}")
-
-col_m4, col_m5, col_m6 = st.columns(3)
-col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
-col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
-col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
-
-# Tabel Ringkasan Bobot Portofolio
-df_port_summary = pd.DataFrame({
-    "Emiten": [c.replace('.JK', '') for c in saham_terpilih],
-    "Bobot (%)": [w * 100 for w in weights],
-    "Expected Return": mean_return_stats.values,
-    "Kontribusi Return": (mean_return_stats.values * weights)
-})
-st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.2f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
-
-with st.expander("💡 Penjelasan & Cara Hitung - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
-    st.markdown(f"""
-    * **Expected Return Portofolio:** Hasil perkalian bobot investasi dengan Expected Return masing-masing emiten.
-    * **Sharpe Ratio ({sharpe_ratio:.4f}):** Efisiensi tingkat keuntungan portofolio terhadap total risikonya setelah dikurangi tingkat bunga bebas risiko ($Rf = {risk_free_rate:.1%}$).
-    * **Treynor Ratio ({treynor_ratio:.4f}):** Mengukur keuntungan portofolio per unit risiko sistematis (**Beta**).
-    * **Jensen's Alpha ({jensen_alpha:.4f}):** Menilai apakah portofolio mampu menghasilkan *alpha* positif (mengalahkan kinerja pasar / benchmark).
-    """)
-
-# --- GRAFIK KINERJA ---
-st.subheader("📊 Visualisasi Pertumbuhan Harga Saham JII (Base = 100)")
-df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
-
-plt.clf()
-fig, ax = plt.subplots(figsize=(10, 4))
-
-for idx, saham in enumerate(df_norm.columns):
-    warna_pilih = WARNA_PASTEL[idx % len(WARNA_PASTEL)]
-    ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.2, color=warna_pilih)
-
-ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
-ax.set_xlabel("Tanggal")
-ax.legend(loc="upper left")
-ax.grid(True, linestyle="--", alpha=0.5)
-st.pyplot(fig)
+    * **Rumus / Sumber Data:** $P_t = \\text{Harga Penutupan (Close Price) pada periode } t$
+    * **Penjelasan Angka:** Tabel
