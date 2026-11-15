@@ -113,7 +113,13 @@ periode_hitung = st.sidebar.selectbox(
     options=["Harian", "Mingguan", "Bulanan", "Tahunan"]
 )
 
-periode_yf = f"{jumlah_tahun + 1}y"
+# Menentukan periode unduh yfinance yang aman agar data tidak kekurangan titik historis
+if jumlah_tahun == 1:
+    periode_yf = "2y"  # Tarik minimal 2 tahun untuk cadangan resampling 1 tahun penuh
+elif jumlah_tahun <= 3:
+    periode_yf = "4y"
+else:
+    periode_yf = "max"
 
 
 # --- 3. MENGAMBIL DATA REAL-TIME DARI WEB ---
@@ -134,25 +140,27 @@ if df_raw.empty:
 df_raw = df_raw[saham_terpilih]
 df_raw.index = pd.to_datetime(df_raw.index)
 
+# FILTER TANGGAL UTAMA DI AWAL: Batasi data mentah berdasarkan pilihan rentang waktu user
+tanggal_akhir_mentah = df_raw.index.max()
+tanggal_mulai_mentah = tanggal_akhir_mentah - pd.DateOffset(years=jumlah_tahun)
+df_filtered = df_raw[df_raw.index >= tanggal_mulai_mentah]
+
+# ATURAN PERIODE RESAMPLING
 aturan_periode = {
-    "Harian": {"rule": "D", "faktor": 252, "ket": "252 hari perdagangan bursa dalam 1 tahun"},
-    "Mingguan": {"rule": "W", "faktor": 52, "ket": "52 minggu dalam 1 tahun"},
-    "Bulanan": {"rule": "ME", "faktor": 12, "ket": "12 bulan dalam 1 tahun"},
-    "Tahunan": {"rule": "YE", "faktor": 1, "ket": "1 tahun penuh"}
+    "Harian": {"rule": "B", "faktor": 252, "ket": "Hari bursa aktif"},
+    "Mingguan": {"rule": "W-FRI", "faktor": 52, "ket": "Setiap akhir minggu (Jumat)"},
+    "Bulanan": {"rule": "ME", "faktor": 12, "ket": "Akhir bulan"},
+    "Tahunan": {"rule": "YE", "faktor": 1, "ket": "Akhir tahun"}
 }
 
 rule_terpilih = aturan_periode[periode_hitung]["rule"]
 faktor_waktu = aturan_periode[periode_hitung]["faktor"]
-ket_faktor = aturan_periode[periode_hitung]["ket"]
 
+# Lakukan resampling berdasarkan data yang sudah difilter rentang waktunya
 if periode_hitung == "Harian":
-    df_harga = df_raw.dropna()
+    df_harga = df_filtered.dropna()
 else:
-    df_harga = df_raw.resample(rule_terpilih).last().dropna()
-
-tanggal_akhir = df_harga.index.max()
-tanggal_mulai = tanggal_akhir - pd.DateOffset(years=jumlah_tahun)
-df_harga = df_harga[df_harga.index >= tanggal_mulai]
+    df_harga = df_filtered.resample(rule_terpilih).last().dropna()
 
 df_harga_display = df_harga.copy()
 df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
@@ -208,7 +216,7 @@ weights = np.array(bobot_input) / total_bobot
 ringkasan_bobot = ", ".join([f"{s.replace('.JK', '')}: {w*100:.1f}%" for s, w in zip(saham_terpilih, weights)])
 st.sidebar.info(f"**Komposisi Bobot Aktif (Total 100%):**\n\n{ringkasan_bobot}")
 
-# --- PALET WARNA PASTEL / ELEGAN UNTUK GRAFIK ---
+# --- PALET WARNA PASTEL ---
 WARNA_PASTEL = ["#4A90E2", "#E056FD", "#686DE0", "#30336B", "#EB4D4B", "#6AB04C", "#F0932B", "#7ed6df"]
 
 
@@ -218,15 +226,15 @@ WARNA_PASTEL = ["#4A90E2", "#E056FD", "#686DE0", "#30336B", "#EB4D4B", "#6AB04C"
 
 # --- SHEET 1: DATA HARGA ---
 st.header(f"1️⃣ Sheet Data Harga Penutupan Saham JII ({periode_hitung})")
-st.dataframe(df_harga_display.tail(10).style.format("Rp {:,.0f}"), use_container_width=True)
+st.dataframe(df_harga_display, use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 1 (Data Harga Historis)", expanded=True):
     tgl_awal_str = df_harga_display.index.min().strftime('%d %b %Y')
     tgl_akhir_str = df_harga_display.index.max().strftime('%d %b %Y')
     st.markdown(f"""
     * **Cakupan Emiten:** Konstituen resmi **Jakarta Islamic Index (JII)**.
-    * **Rentang & Frekuensi Data:** Menampilkan data lengkap selama **{rentang_waktu}** (dari **{tgl_awal_str}** s.d. **{tgl_akhir_str}**) dengan frekuensi **{periode_hitung.lower()}** ({len(df_harga_display)} titik data valid).
-    * **📌 Kesimpulan Sheet 1:** Data harga berhasil ditarik secara utuh dan konsisten dari awal hingga akhir rentang waktu yang dipilih tanpa ada pemotongan periode.
+    * **Rentang & Frekuensi Data:** Menampilkan seluruh rangkaian data secara utuh selama **{rentang_waktu}** (dari tanggal **{tgl_awal_str}** s.d. **{tgl_akhir_str}**) dengan frekuensi **{periode_hitung.lower()}** total **{len(df_harga_display)} baris data valid**.
+    * **📌 Kesimpulan Sheet 1:** Data historis harga penutupan emiten tersaji lengkap dari awal periode tanpa ada pemotongan bulan/tahun yang hilang.
     """)
 
 # --- SHEET 2: RETURN ---
