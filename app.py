@@ -191,7 +191,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
 
         periode_hitung = st.sidebar.selectbox(
             "3. Pilih Frekuensi Perhitungan:",
-            options=["Mingguan", "Harian", "Bulanan", "Semester (6 Bulan)", "Tahunan"]
+            options=["Mingguan", "Harian", "Bulanan", "Tahunan"]
         )
 
         aturan_periode = {
