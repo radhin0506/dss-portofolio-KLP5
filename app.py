@@ -124,7 +124,7 @@ else:
 
 periode_hitung = st.sidebar.selectbox(
     "3. Pilih Frekuensi Perhitungan:",
-    options=["Harian", "Mingguan", "Bulanan", "Tahunan"]
+    options=["Harian", "Mingguan", "Bulanan", "Semester (6 Bulan)", "Tahunan"]
 )
 
 # --- 3. TARIK & FILTER DATA ---
@@ -154,20 +154,28 @@ df_filtered = df_raw[(df_raw.index >= tanggal_mulai) & (df_raw.index <= tanggal_
 if df_filtered.empty:
     df_filtered = df_raw.tail(100)
 
+# PENGATURAN FAKTOR PENGALI WAKTU DINAMIS (Sesuai Frekuensi)
 aturan_periode = {
-    "Harian": {"faktor": 252},
-    "Mingguan": {"rule": "W-FRI", "faktor": 52},
-    "Bulanan": {"rule": "ME", "faktor": 12},
-    "Tahunan": {"rule": "YE", "faktor": 1}
+    "Harian": {"faktor": 252, label_faktor": "252 hari bursa"},
+    "Mingguan": {"faktor": 52, "label_faktor": "52 minggu"},
+    "Bulanan": {"faktor": 12, "label_faktor": "12 bulan"},
+    "Semester (6 Bulan)": {"faktor": 2, "label_faktor": "2 semester (dikali 2 atau disesuaikan periode 6 bulanan)"},
+    "Tahunan": {"faktor": 1, "label_faktor": "1 tahun"}
 }
 
 faktor_waktu = aturan_periode[periode_hitung]["faktor"]
+label_faktor_teks = aturan_periode[periode_hitung]["label_faktor"]
 
 if periode_hitung == "Harian":
     df_harga = df_filtered.dropna()
-else:
-    rule_terpilih = aturan_periode[periode_hitung]["rule"]
-    df_harga = df_filtered.resample(rule_terpilih).last().dropna()
+elif periode_hitung == "Mingguan":
+    df_harga = df_filtered.resample("W-FRI").last().dropna()
+elif periode_hitung == "Bulanan":
+    df_harga = df_filtered.resample("ME").last().dropna()
+elif periode_hitung == "Semester (6 Bulan)":
+    df_harga = df_filtered.resample("2QE").last().dropna()
+else: # Tahunan
+    df_harga = df_filtered.resample("YE").last().dropna()
 
 df_harga_display = df_harga.copy()
 df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
@@ -249,7 +257,7 @@ with st.expander("💡 Penjelasan & Langkah Perhitungan - Sheet 2 (Return)", exp
       1. Ambil harga periode ini ($P_t$) dan kurangi dengan harga periode sebelumnya ($P_{t-1}$).
       2. Bagi hasil selisih tersebut dengan harga periode sebelumnya ($P_{t-1}$).
       3. Rumus matematis: `(Harga Sekarang - Harga Sebelumnya) / Harga Sebelumnya`.
-      * *Contoh:* Jika bulan lalu harganya Rp 2.500 lalu bulan ini naik menjadi Rp 2.750, maka perhitungannya adalah `(2.750 - 2.500) / 2.500 = +10%`. Nilai positif menandakan keuntungan, sedangkan nilai negatif menandakan kerugian.
+      * *Contoh:* Jika periode lalu harganya Rp 2.500 lalu periode ini naik menjadi Rp 2.750, maka perhitungannya adalah `(2.750 - 2.500) / 2.500 = +10%`. Nilai positif menandakan keuntungan, sedangkan nilai negatif menandakan kerugian.
     """)
 
 # --- SHEET 3: STATISTIK INDIVIDUAL ---
@@ -258,19 +266,19 @@ df_statistik = pd.DataFrame({
     f"Mean Return ({periode_hitung})": mean_return_stats,
     f"Varians ({periode_hitung})": df_return_stats.var(),
     f"Std. Deviasi / Risiko ({periode_hitung})": df_return_stats.std(),
-    "Expected Return (Tahunan)": mean_return_stats * faktor_waktu,
-    "Risiko / Volatilitas (Tahunan)": df_return_stats.std() * np.sqrt(faktor_waktu)
+    "Expected Return (Tahunan/Periode)": mean_return_stats * faktor_waktu,
+    "Risiko / Volatilitas (Tahunan/Periode)": df_return_stats.std() * np.sqrt(faktor_waktu)
 })
 st.dataframe(df_statistik.style.format("{:.4f}"), use_container_width=True)
 
 with st.expander("💡 Penjelasan & Langkah Perhitungan - Sheet 3 (Statistik & Risiko)", expanded=True):
     st.markdown(f"""
     * **Asal Angka:** Diolah dari tabel Return di Sheet 2 menggunakan metode statistik standar keuangan.
-    * **Langkah Perhitungan:**
-      1. **Mean Return (Rata-rata):** Menjumlahkan seluruh angka return di Sheet 2 lalu dibagi dengan total jumlah periode data (Padanan Excel: `=AVERAGE(...)`).
-      2. **Std. Deviasi (Risiko Per Periode):** Mengukur seberapa jauh jarak naik-turun angka return dari nilai rata-ratanya untuk melihat tingkat fluktuasi/liarnya saham (Padanan Excel: `=STDEV.S(...)`).
-      3. **Expected Return Tahunan:** Mean Return per periode dikalikan dengan **Faktor Waktu ({faktor_waktu})** (misal dikalikan 12 jika bulanan, atau dikalikan 252 jika harian).
-      4. **Risiko Tahunan:** Standar deviasi per periode dikalikan dengan akar kuadrat dari Faktor Waktu ($\sqrt{{Faktor}}$).
+    * **Langkah Perhitungan & Penyesuaian Frekuensi:**
+      1. **Mean Return (Rata-rata):** Menjumlahkan seluruh angka return di Sheet 2 lalu dibagi dengan total jumlah periode data.
+      2. **Std. Deviasi (Risiko Per Periode):** Mengukur seberapa besar naik-turunnya fluktuasi harga saham dari rata-ratanya.
+      3. **Expected Return Skala Waktu ({periode_hitung}):** Mean Return per periode dikalikan dengan **Faktor Penyetara ({faktor_waktu})** sesuai frekuensi pilihan Anda (**{label_faktor_teks}**). Jika Anda memilih Semester/6 Bulan (faktor 2), maka return periode dikali 2.
+      4. **Risiko Skala Waktu:** Standar deviasi per periode dikalikan dengan akar kuadrat dari Faktor Penyetara ($\sqrt{{Faktor}}$).
     """)
 
 # --- SHEET 4: MATRIKS KOVARIANS ---
@@ -280,7 +288,7 @@ st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
 with st.expander("💡 Penjelasan & Langkah Perhitungan - Sheet 4 (Matriks Kovarians)", expanded=True):
     st.markdown("""
     * **Asal Angka:** Dihitung dengan membandingkan pola pergerakan naik-turun antar dua saham secara bersamaan (misal saham A dibandingkan dengan saham B).
-    * **Langkah Perhitungan:** Menggunakan rumus statistik kovarians sampel (Padanan Excel: `=COVARIANCE.S(...)`). Jika hasil kovarians bernilai **negatif**, artinya kedua saham tersebut sering bergerak berlawanan arah, yang mana sangat efektif untuk menekan risiko gabungan portofolio melalui diversifikasi.
+    * **Langkah Perhitungan:** Menggunakan rumus statistik kovarians sampel. Jika hasil kovarians bernilai **negatif**, artinya kedua saham tersebut sering bergerak berlawanan arah, yang mana sangat efektif untuk menekan risiko gabungan portofolio melalui diversifikasi.
     """)
 
 # --- SHEET 5: EVALUASI, GRAFIK & KEPUTUSAN ---
@@ -293,16 +301,16 @@ port_std_tahunan = port_std_periode * np.sqrt(faktor_waktu)
 sharpe_ratio = port_return_tahunan / port_std_tahunan if port_std_tahunan != 0 else 0
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Expected Return Tahunan", f"{port_return_tahunan:.2%}")
-col2.metric("Risiko Portofolio Tahunan", f"{port_std_tahunan:.2%}")
+col1.metric(f"Expected Return ({periode_hitung})", f"{port_return_tahunan:.2%}")
+col2.metric(f"Risiko Portofolio ({periode_hitung})", f"{port_std_tahunan:.2%}")
 col3.metric("Sharpe Ratio (Efisiensi)", f"{sharpe_ratio:.2f}")
 
 with st.expander("💡 Penjelasan & Langkah Perhitungan - Sheet 5 (Evaluasi Portofolio)", expanded=True):
     saran_teks = [f"- **{s.replace('.JK', '')}**: bobot optimal **{bobot_terbaik[i]*100:.1f}%**" for i, s in enumerate(saham_terpilih)]
     st.markdown(f"""
-    * **Expected Return Tahunan Portofolio:** Hasil penjumlahan dari persentase bobot uang Anda dikalikan dengan return tahunan masing-masing saham (`Sumproduct`).
-    * **Risiko Portofolio Tahunan:** Perhitungan matriks gabungan antara bobot uang dan Matriks Kovarians (Sheet 4) yang memperhitungkan efek saling menutupi risiko antar saham.
-    * **Sharpe Ratio:** Tingkat efisiensi investasi dengan cara membagi Expected Return Tahunan dengan Risiko Portofolio Tahunan. Semakin tinggi angkanya, semakin baik tingkat keuntungannya per satuan risiko.
+    * **Expected Return Portofolio:** Hasil penjumlahan dari persentase bobot uang Anda dikalikan dengan return skala waktu masing-masing saham berdasarkan frekuensi **{periode_hitung}** (faktor pengali: **{faktor_waktu}**).
+    * **Risiko Portofolio:** Perhitungan matriks gabungan antara bobot uang dan Matriks Kovarians (Sheet 4) yang disesuaikan dengan faktor waktu pilihan Anda.
+    * **Sharpe Ratio:** Tingkat efisiensi investasi dengan cara membagi Expected Return dengan Risiko Portofolio. Semakin tinggi angkanya, semakin baik tingkat keuntungannya per satuan risiko.
     <br><br>
     **Saran Alokasi Bobot Terbaik (Hasil Simulasi Komputer untuk Keuntungan Maksimal):**<br>
     """ + "<br>".join(saran_teks), unsafe_allow_html=True)
@@ -333,7 +341,7 @@ daftar_nama_pendek = ", ".join(df_harga_display.columns)
 
 if port_std_tahunan < 0.15:
     kategori_risiko = "Rendah (Konservatif) 🛡️"
-    deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) sangat aman untuk jangka panjang karena risikonya kecil (**{port_std_tahunan:.2%}** per tahun) dengan potensi keuntungan **{port_return_tahunan:.2%}**."
+    deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) sangat aman untuk jangka panjang karena risikonya kecil (**{port_std_tahunan:.2%}**) dengan potensi keuntungan **{port_return_tahunan:.2%}**."
 elif port_std_tahunan <= 0.25:
     kategori_risiko = "Sedang (Moderat) ⚖️"
     deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) sangat pas dan seimbang antara potensi keuntungan (**{port_return_tahunan:.2%}**) dan risikonya (**{port_std_tahunan:.2%}**). Layak untuk dieksekusi."
