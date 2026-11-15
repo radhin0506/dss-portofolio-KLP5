@@ -610,9 +610,9 @@ else:
     st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Kinerja)", expanded=True):
-        st.markdown(
+        teks_panduan_sheet6 = (
             "* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
-            f"* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **{port_var_skala:.6f}** (Memperhitungkan bobot dan kovarians antar aset)\n"
+            f"* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **{port_var_skala:.6f}** (Memperhitungkan bobot & kovarians antar aset)\n"
             f"* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **{port_std_skala:.4f} ({port_std_skala:.2%})**\n"
             f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
             f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
@@ -623,6 +623,7 @@ else:
             "* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
             "* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
         )
+        st.markdown(teks_panduan_sheet6)
 
     # --- GRAFIK KINERJA ---
     st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
