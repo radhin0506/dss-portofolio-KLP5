@@ -50,7 +50,7 @@ st.markdown(
     "konstituen **Jakarta Islamic Index (JII)** di Bursa Efek Indonesia (BEI) secara *real-time*."
 )
 
-# --- 1. DAFTAR RESMI 30 SAHAM KONSTITUEN INDEKS JII (TERMASUK CTRA) ---
+# --- 1. DAFTAR RESMI 30 SAHAM KONSTITUEN INDEKS JII ---
 DAFTAR_SAHAM_JII = {
     "AADI.JK": "AADI - Adaro Andalan Indonesia Tbk. (Energi)",
     "ADMR.JK": "ADMR - Alamtri Minerals Indonesia Tbk. (Pertambangan)",
@@ -117,7 +117,7 @@ periode_hitung = st.sidebar.selectbox(
 periode_yf = f"{jumlah_tahun}y"
 
 
-# --- 3. MENGAMBIL DATA REAL-TIME (CLOSE MURNI DALAM RUPIAH) ---
+# --- 3. MENGAMBIL DATA REAL-TIME ---
 @st.cache_data(ttl=3600)
 def ambil_data_saham(tickers, period):
     df_download = yf.download(tickers, period=period, progress=False)
@@ -159,8 +159,8 @@ else:
 df_harga_display = df_harga.copy()
 df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
 
-# Hitung Return & Statistik dasar
-df_return = df_harga_display.pct_change().dropna()
+# Hitung Return (Menggunakan fillna(0) agar baris awal tidak terhapus dan data tampil penuh)
+df_return = df_harga_display.pct_change().fillna(0)
 mean_return = df_return.mean()
 cov_matrix = df_return.cov()
 
@@ -210,7 +210,7 @@ weights = np.array(bobot_input) / total_bobot
 ringkasan_bobot = ", ".join([f"{s.replace('.JK', '')}: {w*100:.1f}%" for s, w in zip(saham_terpilih, weights)])
 st.sidebar.info(f"**Komposisi Bobot Aktif (Total 100%):**\n\n{ringkasan_bobot}")
 
-# --- PALET WARNA PASTEL COKLAT UNTUK GRAFIK ---
+# --- PALET WARNA PASTEL COKLAT ---
 WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25", "#E6CCB2", "#D4A373"]
 
 
@@ -233,24 +233,27 @@ with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 1 (Data Harga Histor
 
 # --- SHEET 2: RETURN ---
 st.header(f"2️⃣ Sheet Perhitungan Return / Imbal Hasil ({periode_hitung})")
-st.dataframe(df_return.tail(10).style.format("{:.2%}"), use_container_width=True)
+st.dataframe(df_return.style.format("{:.2%}"), use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 2 (Return Saham)", expanded=True):
     st.markdown("""
     * **Rumus:** $R_t = \\frac{P_t - P_{t-1}}{P_{t-1}}$ (Persentase perubahan harga antar periode).
-    * **📌 Kesimpulan Sheet 2:** Nilai return positif menunjukkan adanya kenaikan harga saham pada periode tersebut, sedangkan nilai negatif menunjukkan terjadinya koreksi/penurunan harga.
+    * **📌 Kesimpulan Sheet 2:** Nilai return positif menunjukkan adanya kenaikan harga saham pada periode tersebut, sedangkan nilai negatif menunjukkan terjadinya koreksi/penurunan harga. Seluruh baris data ditampilkan secara penuh.
     """)
 
 # --- SHEET 3: STATISTIK INDIVIDUAL ---
 st.header("3️⃣ Sheet Statistik & Risiko Individual Saham")
-std_return = df_return.std()
-var_return = df_return.var()
+# Statistik dihitung dengan mengabaikan nilai baris awal (0) agar rata-rata akurat
+df_return_stats = df_harga_display.pct_change().dropna()
+std_return = df_return_stats.std()
+var_return = df_return_stats.var()
+mean_return_stats = df_return_stats.mean()
 
 df_statistik = pd.DataFrame({
-    f"Mean Return ({periode_hitung})": mean_return,
+    f"Mean Return ({periode_hitung})": mean_return_stats,
     f"Varians ({periode_hitung})": var_return,
     f"Std. Deviasi / Risiko ({periode_hitung})": std_return,
-    "Expected Return (Tahunan)": mean_return * faktor_waktu,
+    "Expected Return (Tahunan)": mean_return_stats * faktor_waktu,
     "Risiko / Volatilitas (Tahunan)": std_return * np.sqrt(faktor_waktu)
 })
 
@@ -266,7 +269,8 @@ with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 3 (Statistik & Annua
 
 # --- SHEET 4: MATRIKS KOVARIANS ---
 st.header("4️⃣ Sheet Matriks Kovarians (Covariance Matrix)")
-st.dataframe(cov_matrix.style.format("{:.6f}"), use_container_width=True)
+cov_matrix_stats = df_return_stats.cov()
+st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 4 (Matriks Kovarians)", expanded=True):
     st.markdown("""
@@ -277,8 +281,8 @@ with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 4 (Matriks Kovarians
 # --- SHEET 5: EVALUASI & SARAN PENGAMBILAN BOBOT ---
 st.header("5️⃣ Sheet Evaluasi Portofolio & Saran Pengambilan Bobot")
 
-port_return_periode = np.sum(mean_return * weights)
-port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+port_return_periode = np.sum(mean_return_stats * weights)
+port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_stats, weights)))
 port_return_tahunan = port_return_periode * faktor_waktu
 port_std_tahunan = port_std_periode * np.sqrt(faktor_waktu)
 sharpe_ratio = port_return_tahunan / port_std_tahunan if port_std_tahunan != 0 else 0
