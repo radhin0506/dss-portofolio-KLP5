@@ -85,7 +85,7 @@ def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="shar
     idx_terbaik = np.argmax(skor)
     return w_acak[idx_terbaik] * 100.0
 
-# --- 2. SIDEBAR: NAVIGASI MENU ---
+# --- 2. SIDEBAR: NAVIGASI MENU (Memastikan Ikon Garis Tiga Muncul di HP) ---
 st.sidebar.header("🧭 Navigasi Menu")
 menu_pilihan = st.sidebar.radio(
     "Pilih Halaman:",
@@ -99,9 +99,9 @@ if menu_pilihan == "🏠 Beranda (Home)":
     bg_aksen = "#FFF0F5"      
     border_aksen = "#F8BBD0"
 else:
-    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach[cite: 4]
-    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau[cite: 6]
-    bg_aksen = "#D1C4E9"      # Aksen / Expander: Pastel Ungu[cite: 5]
+    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach
+    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau
+    bg_aksen = "#D1C4E9"      # Aksen / Expander: Pastel Ungu
     border_aksen = "#B39DDB"
 
 st.markdown(f"""
@@ -135,7 +135,7 @@ st.markdown(f"""
     span[data-baseweb="tag"], 
     div[data-baseweb="tag"],
     [data-baseweb="tag"] {{
-        background-color: #D1C4E9 !important; /* Pastel Ungu[cite: 5] */
+        background-color: #D1C4E9 !important;
         background: #D1C4E9 !important;
         border-color: #B39DDB !important;
         border-radius: 6px !important;
@@ -415,13 +415,13 @@ else:
     }, index=dates)
     saham_terpilih_list = list(df_harga_display.columns)
 
-# Palet Warna Grafik 5 Warna Pastel (Pink, Biru, Ungu, Peach, Hijau)
+# Palet Warna Grafik 5 Warna Pastel
 WARNA_GRAFIK_PASTEL = [
     "#FFC5D3",  # Pastel Pink
     "#81D4FA",  # Pastel Biru
-    "#D1C4E9",  # Pastel Ungu[cite: 5]
-    "#F8C4B4",  # Pastel Peach[cite: 4]
-    "#BAED91"   # Pastel Green[cite: 6]
+    "#D1C4E9",  # Pastel Ungu
+    "#F8C4B4",  # Pastel Peach
+    "#BAED91"   # Pastel Green
 ]
 
 # Perhitungan Analisis Akhir
@@ -488,7 +488,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
         * **6️⃣ Sheet 6: Return Portofolio & Kinerja** — Evaluasi akhir menggunakan Sharpe, Treynor, & Alpha.
         """)
     
-    st.success("👉 Silakan klik menu **Analisis Lengkap (6 Sheet)** di sidebar sebelah kiri untuk mulai mengatur emiten, bobot, dan melihat rincian perhitungannya!")
+    st.success("👉 Silakan klik ikon menu di pojok kiri atas (atau sidebar di laptop) untuk mulai mengatur emiten, bobot, dan melihat rincian perhitungannya!")
 
 else:
     # =====================================================================
