@@ -117,10 +117,18 @@ periode_hitung = st.sidebar.selectbox(
 periode_yf = f"{jumlah_tahun}y"
 
 
-# --- 3. MENGAMBIL DATA REAL-TIME DARI WEB ---
+# --- 3. MENGAMBIL DATA REAL-TIME DARI WEB (MENGGUNAKAN HARGA CLOSE ASLI) ---
 @st.cache_data(ttl=3600)
 def ambil_data_saham(tickers, period):
-    data = yf.download(tickers, period=period, progress=False)["Close"]
+    # Mengambil data Close murni agar angka harga sesuai nominal bursa (tidak berupa desimal adjusted)
+    df_download = yf.download(tickers, period=period, progress=False)
+    
+    if isinstance(df_download.columns, pd.MultiIndex):
+        # Jika multi-index, ambil bagian Close-nya saja secara aman
+        data = df_download["Close"]
+    else:
+        data = df_download[["Close"]] if "Close" in df_download.columns else df_download
+
     if isinstance(data, pd.Series):
         data = data.to_frame(name=tickers[0])
     return data.dropna()
