@@ -9,7 +9,7 @@ st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide
 
 # --- TAG HTML VERIFIKASI GOOGLE SEARCH CONSOLE ---
 st.markdown(
-    '<meta name="google-site-verification" content="MASUKKAN_KODE_UNIK_DARI_GOOGLE_DISINI" />',
+    '<meta name="google-site-verification" content="MASUKKAN_KODE_UNIK_DARI_GOOGLE_DISINI" />', 
     unsafe_allow_html=True
 )
 
@@ -52,21 +52,21 @@ DAFTAR_SAHAM_JII = {
 def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="sharpe", n_simulasi=15000):
     np.random.seed(42)
     n_aset = len(mean_ret)
-
+    
     w_acak = np.random.dirichlet(np.ones(n_aset), size=n_simulasi)
-
+    
     port_ret = np.dot(w_acak, mean_ret) * faktor
     port_var = np.sum(np.dot(w_acak, cov_mat) * w_acak, axis=1)
     port_std = np.sqrt(port_var) * np.sqrt(faktor)
     port_beta_sim = np.dot(w_acak, beta_arr)
-
+    
     if target == "sharpe":
         skor = np.where(port_std != 0, (port_ret - rf) / port_std, -np.inf)
     elif target == "treynor":
         skor = np.where(port_beta_sim > 0.05, (port_ret - rf) / port_beta_sim, -np.inf)
-    else:
+    else:  # jensen's alpha
         skor = port_ret - (rf + port_beta_sim * (rm - rf))
-
+        
     idx_terbaik = np.argmax(skor)
     return w_acak[idx_terbaik] * 100.0
 
@@ -77,26 +77,26 @@ menu_pilihan = st.sidebar.radio(
     options=["🏠 Beranda (Home)", "📊 Analisis Lengkap (6 Sheet)"]
 )
 
-# --- KUSTOMISASI CSS WARNA PASTEL DINAMIS ---
-# Beranda: 2 Warna (Pastel Pink + Pastel Biru)
-# Analisis Sheet: 3 Warna (Pastel Peach + Pastel Hijau + Pastel Ungu)
+# --- KUSTOMISASI CSS WARNA PASTEL SESUAI GAMBAR ANDA ---
+# Beranda: 2 Warna (Pastel Pink #FFC5D3 & Pastel Biru #D4EEF9)
+# Analisis Sheet: 3 Warna (Pastel Peach #F8C4B4, Pastel Green #BAED91, Pastel Ungu #D1C4E9)
 if menu_pilihan == "🏠 Beranda (Home)":
-    bg_utama = "#FFF0F5"      # Pastel Pink
-    bg_sidebar = "#E6F2FA"    # Pastel Biru
-    bg_aksen = "#D9ECFA"      # Aksen Biru Lembut
-    border_aksen = "#B8D8F0"
+    bg_utama = "#FFC5D3"      # Pastel Pink (Sesuai Gambar)
+    bg_sidebar = "#D4EEF9"    # Pastel Biru (Sesuai Gambar)
+    bg_aksen = "#E8F4FC"      # Aksen Biru Muda
+    border_aksen = "#A8DADC"
 else:
-    bg_utama = "#FFF3E6"      # Pastel Peach
-    bg_sidebar = "#E8F6EF"    # Pastel Hijau
-    bg_aksen = "#EFE9FA"      # Pastel Ungu
-    border_aksen = "#D5C6F0"
+    bg_utama = "#F8C4B4"      # Pastel Peach (Sesuai Gambar)
+    bg_sidebar = "#BAED91"    # Pastel Green (Sesuai Gambar)
+    bg_aksen = "#D1C4E9"      # Pastel Ungu (Sesuai Gambar)
+    border_aksen = "#B39DDB"
 
 st.markdown(f"""
 <style>
     :root {{
         --background-color: {bg_utama} !important;
         --secondary-background-color: {bg_sidebar} !important;
-        --text-color: #3D354B !important;
+        --text-color: #2C2C2C !important;
     }}
 
     .stApp, 
@@ -105,7 +105,7 @@ st.markdown(f"""
     [data-testid="stToolbar"],
     section.main {{
         background-color: {bg_utama} !important;
-        color: #3D354B !important;
+        color: #2C2C2C !important;
     }}
     
     [data-testid="stSidebar"], 
@@ -115,12 +115,12 @@ st.markdown(f"""
     }}
     
     h1, h2, h3, h4, h5, h6, p, span, label, div {{
-        color: #3D354B !important;
+        color: #2C2C2C !important;
     }}
 
     .streamlit-expanderHeader {{
         background-color: {bg_aksen} !important;
-        color: #3D354B !important;
+        color: #2C2C2C !important;
         border: 1px solid {border_aksen} !important;
         border-radius: 8px;
     }}
@@ -162,12 +162,12 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                     df_uploaded = pd.read_csv(uploaded_file)
                 else:
                     df_uploaded = pd.read_excel(uploaded_file)
-
+                
                 kolom_tanggal = [c for c in df_uploaded.columns if "tanggal" in c.lower() or "date" in c.lower()]
                 if kolom_tanggal:
                     df_uploaded[kolom_tanggal[0]] = pd.to_datetime(df_uploaded[kolom_tanggal[0]])
                     df_uploaded = df_uploaded.set_index(kolom_tanggal[0])
-
+                
                 df_harga_display = df_uploaded.select_dtypes(include=[np.number])
                 if "No" in df_harga_display.columns:
                     df_harga_display = df_harga_display.drop(columns=["No"])
@@ -269,7 +269,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     if sumber_data == "Upload File Sendiri (Excel/CSV)":
         periode_hitung = "Data Upload Mandiri"
         jumlah_baris_data = len(df_harga_display)
-
+        
         pilihan_skala = st.sidebar.selectbox(
             "Pilih Penyesuaian Skala Waktu:",
             options=[
@@ -329,19 +329,13 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     default_bobot_satuan = round(100.0 / jumlah_saham, 4)
 
     if mode_bobot == "Otomatis: Maksimum Sharpe Ratio":
-        bobot_optimal_persen = cari_bobot_optimal(
-            mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="sharpe"
-        )
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="sharpe")
         st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Sharpe Ratio tertinggi**!")
     elif mode_bobot == "Otomatis: Maksimum Treynor Ratio":
-        bobot_optimal_persen = cari_bobot_optimal(
-            mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="treynor"
-        )
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="treynor")
         st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Treynor Ratio tertinggi**!")
     elif mode_bobot == "Otomatis: Maksimum Jensen's Alpha":
-        bobot_optimal_persen = cari_bobot_optimal(
-            mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="alpha"
-        )
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="alpha")
         st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Jensen's Alpha tertinggi**!")
     elif mode_bobot == "Bobot Berimbang (Equal Weight)":
         bobot_optimal_persen = [default_bobot_satuan] * jumlah_saham
@@ -352,21 +346,21 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     for idx, saham in enumerate(saham_terpilih_list):
         if mode_bobot == "Manual (Desimal spesifik)":
             nilai = st.sidebar.number_input(
-                f"Bobot {saham} (%)",
-                min_value=0.0,
-                max_value=100.0,
-                value=float(bobot_optimal_persen[idx]),
-                step=0.01,
+                f"Bobot {saham} (%)", 
+                min_value=0.0, 
+                max_value=100.0, 
+                value=float(bobot_optimal_persen[idx]), 
+                step=0.01, 
                 format="%.4f",
                 key=f"manual_bobot_{saham}"
             )
         else:
             nilai = st.sidebar.number_input(
-                f"Bobot {saham} (%)",
-                min_value=0.0,
-                max_value=100.0,
-                value=round(float(bobot_optimal_persen[idx]), 4),
-                step=0.01,
+                f"Bobot {saham} (%)", 
+                min_value=0.0, 
+                max_value=100.0, 
+                value=round(float(bobot_optimal_persen[idx]), 4), 
+                step=0.01, 
                 format="%.4f",
                 disabled=True,
                 key=f"auto_bobot_{saham}_{mode_bobot}"
@@ -391,13 +385,13 @@ else:
     }, index=dates)
     saham_terpilih_list = list(df_harga_display.columns)
 
-# Palet Warna Grafik 5 Warna Pastel (Pink, Biru, Ungu, Peach, Hijau)
+# Palet Warna Grafik Berdasarkan Gambar Anda (Pink, Biru, Ungu, Peach, Hijau)
 WARNA_GRAFIK_PASTEL = [
-    "#E57399",  # Pastel Pink
-    "#64B5F6",  # Pastel Biru
-    "#9575CD",  # Pastel Ungu
-    "#FF8A65",  # Pastel Peach
-    "#66BB6A"   # Pastel Hijau
+    "#FFC5D3",  # Pastel Pink
+    "#81D4FA",  # Pastel Biru
+    "#D1C4E9",  # Pastel Ungu
+    "#F8C4B4",  # Pastel Peach
+    "#BAED91"   # Pastel Green
 ]
 
 # Perhitungan Analisis Akhir
@@ -440,16 +434,16 @@ jensen_alpha = port_return_skala - (risk_free_rate + port_beta * (market_return 
 if menu_pilihan == "🏠 Beranda (Home)":
     st.title("🕌 Selamat Datang di Sistem Pendukung Keputusan (DSS) Portofolio Saham Syariah")
     st.markdown("### Analisis Portofolio Berbasis Konstituen Jakarta Islamic Index (JII)")
-
+    
     st.info(
         "💡 **Tentang Aplikasi:** Aplikasi web ini dirancang khusus untuk membantu pengambil keputusan "
         "dalam merancang, merumuskan risiko, menghitung return, serta mengevaluasi kinerja portofolio saham syariah "
         "secara komprehensif berdasarkan kaidah portofolio Modern Markowitz."
     )
-
+    
     st.markdown("---")
     st.subheader("📑 Struktur Analisis 6 Sheet")
-
+    
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("""
@@ -463,14 +457,14 @@ if menu_pilihan == "🏠 Beranda (Home)":
         * **5️⃣ Sheet 5: Koefisien Korelasi** — Mengukur keeratan hubungan untuk diversifikasi.
         * **6️⃣ Sheet 6: Return Portofolio & Kinerja** — Evaluasi akhir menggunakan Sharpe, Treynor, & Alpha.
         """)
-
+    
     st.success("👉 Silakan klik menu **Analisis Lengkap (6 Sheet)** di sidebar sebelah kiri untuk mulai mengatur emiten, bobot, dan melihat rincian perhitungannya!")
 
 else:
     # =====================================================================
     # ANALISIS LENGKAP 6 SHEET
     # =====================================================================
-
+    
     # --- SHEET 1: HARGA CLOSE ---
     st.header(f"1️⃣ Sheet 1: Harga Close ({periode_hitung})")
     df_sheet1 = df_harga_display.reset_index()
@@ -512,4 +506,96 @@ else:
 
     # --- SHEET 3: VARIANS & STANDAR DEVIASI ---
     st.header("3️⃣ Sheet 3: Varians & Standar Deviasi")
-    df_sheet3
+    df_sheet3 = pd.DataFrame({
+        "Emiten": saham_terpilih_list,
+        f"Mean Return ({periode_hitung})": mean_return_stats.values,
+        "Variance": df_return_stats.var().values,
+        "Standar Deviasi (Risiko)": std_stats.values,
+        "Expected Return (Skala Waktu)": mean_return_stats.values * faktor_waktu,
+        "Risiko (Skala Waktu)": std_stats.values * np.sqrt(faktor_waktu)
+    })
+    kolom_angka_sheet3 = [f"Mean Return ({periode_hitung})", "Variance", "Standar Deviasi (Risiko)", "Expected Return (Skala Waktu)", "Risiko (Skala Waktu)"]
+    st.dataframe(df_sheet3.style.format({col: "{:.6f}" for col in kolom_angka_sheet3}), use_container_width=True)
+
+    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 3 (Varians & Standar Deviasi)", expanded=True):
+        st.markdown(
+            f"* **Faktor Skala Waktu Aktif:** {label_faktor_teks} (Faktor = `{faktor_waktu}`)\n"
+            "* **Kesimpulan Sheet 3:** Skala waktu disesuaikan agar angka hasil analisis proporsional dengan jumlah data Anda."
+        )
+
+    # --- SHEET 4: COVARIANCE ---
+    st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
+    st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
+
+    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 4 (Covariance)", expanded=True):
+        st.markdown(
+            "* **Rumus Kovarians:** Mengukur arah pergerakan bersama antar dua variabel saham.\n"
+            "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi portofolio."
+        )
+
+    # --- SHEET 5: KOEFISIEN KORELASI ---
+    st.header("5️⃣ Sheet 5: Koefisien Korelasi")
+    corr_matrix = df_return_stats.corr()
+    st.dataframe(corr_matrix.style.format("{:.6f}"), use_container_width=True)
+
+    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 5 (Koefisien Korelasi)", expanded=True):
+        st.markdown(
+            "* **Rumus Koefisien Korelasi (r):** r = Cov(A,B) / (SD_A * SD_B)\n"
+            "* **Kesimpulan Sheet 5:** Pilih emiten dengan korelasi rendah atau negatif untuk diversifikasi optimal."
+        )
+
+    # --- SHEET 6: RETURN PORTOFOLIO & KINERJA ---
+    st.header("6️⃣ Sheet 6: Return Portofolio, Risiko, & Metrik Kinerja (Sharpe, Treynor, Alpha)")
+
+    if "Otomatis" in mode_bobot:
+        st.info(f"🤖 **Mode Optimasi Aktif:** `{mode_bobot}` — Proporsi bobot di bawah ini telah dihitung otomatis untuk memaksimalkan kinerja tersebut.")
+
+    col_m1, col_m2, col3 = st.columns(3)
+    col_m1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
+    col_m2.metric("Risiko Portofolio", f"{port_std_skala:.2%}")
+    col3.metric("Beta Portofolio", f"{port_beta:.4f}")
+
+    col_m4, col_m5, col_m6 = st.columns(3)
+    col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
+    col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
+    col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
+
+    df_port_summary = pd.DataFrame({
+        "Emiten": saham_terpilih_list,
+        "Bobot (%)": [w * 100 for w in weights],
+        "Expected Return": mean_return_stats.values,
+        "Kontribusi Return": (mean_return_stats.values * weights)
+    })
+    st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
+
+    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
+        st.markdown(
+            f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
+            f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
+            f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
+            f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
+            f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
+            f"**Kesimpulan Keseluruhan Portofolio:**\n"
+            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan tingkat risiko **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
+            f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
+            f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
+        )
+
+    # --- GRAFIK KINERJA ---
+    st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
+    df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
+
+    plt.clf()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    fig.patch.set_facecolor("#F8C4B4")
+    ax.set_facecolor("#FFFDFB")
+
+    for idx, saham in enumerate(df_norm.columns):
+        warna_pilih = WARNA_GRAFIK_PASTEL[idx % len(WARNA_GRAFIK_PASTEL)]
+        ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.4, color=warna_pilih)
+
+    ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
+    ax.set_xlabel("Tanggal")
+    ax.legend(loc="upper left")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    st.pyplot(fig)
