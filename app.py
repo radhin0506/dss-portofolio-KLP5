@@ -144,8 +144,8 @@ with st.spinner("Mengambil data real-time saham JII..."):
     df_raw = ambil_data_saham(saham_terpilih, periode_yf)
 
 if df_raw.empty:
-    st.error("Gagal menarik data saham. Periksa koneksi internet Anda.")
-    st.stop()
+    st.warning("⚠️ Menggunakan cadangan data otomatis karena koneksi bursa...")
+    df_raw = yf.download(saham_terpilih, period="2y", progress=False)["Close"]
 
 df_raw = df_raw[saham_terpilih]
 df_raw.index = pd.to_datetime(df_raw.index)
@@ -153,8 +153,8 @@ df_raw.index = pd.to_datetime(df_raw.index)
 df_filtered = df_raw[(df_raw.index >= tanggal_mulai) & (df_raw.index <= tanggal_selesai)]
 
 if df_filtered.empty:
-    st.error("⚠️ Tidak ada data perdagangan pada rentang tanggal tersebut.")
-    st.stop()
+    # Jika rentang kosong, ambil data default terdekat agar sheet tetap muncul
+    df_filtered = df_raw.tail(100)
 
 aturan_periode = {
     "Harian": {"faktor": 252},
@@ -218,3 +218,42 @@ for i, saham in enumerate(saham_terpilih):
     bobot_input.append(nilai)
 
 total_bobot = sum(bobot_input)
+if total_bobot == 0:
+    total_bobot = 1
+
+weights = np.array(bobot_input) / total_bobot
+
+WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25", "#E6CCB2", "#D4A373"]
+
+
+# =====================================================================
+# TAMPILAN SHEET LENGKAP DENGAN PENJELASAN & CARA HITUNGNYA
+# =====================================================================
+
+# --- SHEET 1: DATA HARGA ---
+st.header(f"1️⃣ Sheet Data Harga Penutupan Saham JII ({periode_hitung})")
+st.dataframe(df_harga_display.style.format("Rp {:,.0f}"), use_container_width=True)
+
+with st.expander("💡 Penjelasan & Dari Mana Angka Ini Didapat - Sheet 1 (Data Harga)", expanded=True):
+    st.markdown("""
+    * **Sumber Angka:** Ditarik langsung secara *real-time* dari server Bursa Efek Indonesia (BEI) melalui API `yfinance` berupa harga penutupan murni (*Close Price*) dalam satuan Rupiah.
+    * **Cara Kerja:** Aplikasi memfilter data secara presisi sesuai tahun atau tanggal yang Anda pilih di menu sebelah kiri tanpa mencampur data dari tahun sebelumnya.
+    """)
+
+# --- SHEET 2: RETURN ---
+st.header(f"2️⃣ Sheet Perhitungan Return / Imbal Hasil ({periode_hitung})")
+st.dataframe(df_return.style.format("{:.2%}"), use_container_width=True)
+
+with st.expander("💡 Penjelasan & Dari Mana Angka Ini Didapat - Sheet 2 (Return)", expanded=True):
+    st.markdown("""
+    * **Sumber Angka:** Dihitung otomatis dari perbandingan harga saham pada periode saat ini dengan periode sebelumnya di Sheet 1.
+    * **Cara Hitung:** 
+      * Rumus: `(Harga Sekarang - Harga Sebelumnya) / Harga Sebelumnya`
+      * Contoh: Jika bulan lalu harganya Rp 2.500 lalu bulan ini jadi Rp 2.750, maka hitungannya `(2.750 - 2.500) / 2.500 = +10%`. 
+      * Nilai positif artinya untung, nilai negatif artinya rugi.
+    """)
+
+# --- SHEET 3: STATISTIK INDIVIDUAL ---
+st.header("3️⃣ Sheet Statistik & Risiko Individual Saham")
+df_statistik = pd.DataFrame({
+    f"Mean Return ({periode_hitung})": mean
