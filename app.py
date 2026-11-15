@@ -85,13 +85,11 @@ if sumber_data == "Upload File Sendiri (Excel/CSV)":
             else:
                 df_uploaded = pd.read_excel(uploaded_file)
             
-            # Deteksi kolom Tanggal
             kolom_tanggal = [c for c in df_uploaded.columns if "tanggal" in c.lower() or "date" in c.lower()]
             if kolom_tanggal:
                 df_uploaded[kolom_tanggal[0]] = pd.to_datetime(df_uploaded[kolom_tanggal[0]])
                 df_uploaded = df_uploaded.set_index(kolom_tanggal[0])
             
-            # Bersihkan nama kolom harga
             df_harga_display = df_uploaded.select_dtypes(include=[np.number])
             if "No" in df_harga_display.columns:
                 df_harga_display = df_harga_display.drop(columns=["No"])
@@ -188,7 +186,6 @@ else:
     df_harga_display = df_harga.copy()
     df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
 
-# Pengaturan Umum untuk Perhitungan
 if sumber_data == "Upload File Sendiri (Excel/CSV)":
     periode_hitung = "Periode Upload"
     faktor_waktu = 52
@@ -196,7 +193,6 @@ if sumber_data == "Upload File Sendiri (Excel/CSV)":
 
 saham_terpilih_list = list(df_harga_display.columns)
 
-# Return & Statistik
 df_return = df_harga_display.pct_change().fillna(0)
 df_return_stats = df_harga_display.pct_change().dropna()
 if df_return_stats.empty:
@@ -206,7 +202,6 @@ mean_return_stats = df_return_stats.mean()
 cov_matrix_stats = df_return_stats.cov()
 std_stats = df_return_stats.std()
 
-# Sidebar Bobot & Parameter Kinerja
 st.sidebar.subheader("⚖️ Atur Bobot Investasi (%)")
 mode_bobot = st.sidebar.radio(
     "Metode Penentuan Bobot:",
@@ -234,7 +229,7 @@ WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25"
 
 
 # =====================================================================
-# STRUKTUR 6 SHEET LENGKAP DENGAN RUMUS, ANGKA, PENJELASAN & KESIMPULAN
+# 6 SHEET ANALISIS PORTOFOLIO SYARIAH
 # =====================================================================
 
 # --- SHEET 1: HARGA CLOSE ---
@@ -246,4 +241,100 @@ else:
     df_sheet1.rename(columns={df_sheet1.columns[0]: 'Periode/Tanggal'}, inplace=True)
 
 df_sheet1.insert(0, "No", range(1, len(df_sheet1) + 1))
-st.dataframe
+st.dataframe(df_sheet1.style.format({"No": "{:.0f}", **{c: "Rp {:,.0f}" for c in saham_terpilih_list}}), use_container_width=True)
+
+with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 1 (Data Harga Close)", expanded=True):
+    st.markdown(
+        "* **Rumus / Sumber Data:** $P_t = \\text{Harga Penutupan (Close Price)}$\n"
+        "* **Penjelasan Angka:** Tabel menampilkan histori harga saham emiten pilihan dalam Rupiah.\n"
+        "* **Kesimpulan Sheet 1:** Data harga mentah ini berfungsi sebagai pondasi utama seluruh perhitungan return dan risiko."
+    )
+
+# --- SHEET 2: RETURN REALISASI & ER ---
+st.header(f"2️⃣ Sheet 2: Return Realisasi & ER ({periode_hitung})")
+df_sheet2 = df_return.copy().reset_index(drop=True)
+df_sheet2.insert(0, "No", range(1, len(df_sheet2) + 1))
+st.dataframe(df_sheet2.style.format({"No": "{:.0f}", **{c: "{:.6f}" for c in saham_terpilih_list}}), use_container_width=True)
+
+st.markdown("**Expected Return (ER) Masing-masing Emiten (Rata-rata Return):**")
+st.json({col: f"{val:.6f}" for col, val in mean_return_stats.items()})
+
+with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 2 (Return Realisasi & ER)", expanded=True):
+    st.markdown(
+        "* **Rumus Return ($R_t$):** $R_t = \\frac{P_t - P_{t-1}}{P_{t-1}}$\n"
+        "* **Rumus Expected Return ($ER$):** $ER = \\frac{\\sum R_t}{n}$\n"
+        "* **Penjelasan Angka:** Menunjukkan persentase keuntungan/kerugian dan nilai rata-rata return historis.\n"
+        "* **Kesimpulan Sheet 2:** Emiten dengan ER positif menunjukkan tren keuntungan yang baik."
+    )
+
+# --- SHEET 3: VARIANS & STANDAR DEVIASI ---
+st.header("3️⃣ Sheet 3: Varians & Standar Deviasi")
+df_sheet3 = pd.DataFrame({
+    "Emiten": saham_terpilih_list,
+    f"Mean Return ({periode_hitung})": mean_return_stats.values,
+    "Variance": df_return_stats.var().values,
+    "Standar Deviasi (Risiko)": std_stats.values,
+    f"Expected Return (Skala Waktu)": mean_return_stats.values * faktor_waktu,
+    f"Risiko (Skala Waktu)": std_stats.values * np.sqrt(faktor_waktu)
+})
+kolom_angka_sheet3 = [f"Mean Return ({periode_hitung})", "Variance", "Standar Deviasi (Risiko)", "Expected Return (Skala Waktu)", "Risiko (Skala Waktu)"]
+st.dataframe(df_sheet3.style.format({col: "{:.6f}" for col in kolom_angka_sheet3}), use_container_width=True)
+
+with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 3 (Varians & Standar Deviasi)", expanded=True):
+    st.markdown(
+        f"* **Rumus Varians ($\sigma^2$):** $\\sigma^2 = \\frac{\\sum (R_t - ER)^2}{n - 1}$\n"
+        f"* **Rumus Standar Deviasi ($\sigma$):** $\\sigma = \\sqrt{\\sigma^2}$\n"
+        f"* **Penjelasan Angka:** Mengukur tingkat volatilitas (risiko). Disesuaikan dengan faktor waktu **{label_faktor_teks}**.\n"
+        f"* **Kesimpulan Sheet 3:** Semakin kecil standar deviasi, semakin stabil dan rendah risiko saham tersebut."
+    )
+
+# --- SHEET 4: COVARIANCE ---
+st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
+st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
+
+with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 4 (Covariance)", expanded=True):
+    st.markdown(
+        "* **Rumus Kovarians ($Cov_{A,B}$):** $Cov_{A,B} = \\frac{\\sum (R_{A,t} - ER_A)(R_{B,t} - ER_B)}{n - 1}$\n"
+        "* **Penjelasan Angka:** Menunjukkan arah pergerakan bersama antar dua saham.\n"
+        "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi karena dapat meredam risiko portofolio."
+    )
+
+# --- SHEET 5: KOEFISIEN KORELASI ---
+st.header("5️⃣ Sheet 5: Koefisien Korelasi")
+corr_matrix = df_return_stats.corr()
+st.dataframe(corr_matrix.style.format("{:.6f}"), use_container_width=True)
+
+with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 5 (Koefisien Korelasi)", expanded=True):
+    st.markdown(
+        "* **Rumus Koefisien Korelasi ($r$):** $r_{A,B} = \\frac{Cov_{A,B}}{\\sigma_A \\times \\sigma_B}$\n"
+        "* **Penjelasan Angka:** Nilai berkisar dari -1 hingga +1.\n"
+        "* **Kesimpulan Sheet 5:** Pilih emiten dengan korelasi rendah atau negatif untuk diversifikasi optimal."
+    )
+
+# --- SHEET 6: RETURN PORTOFOLIO & KINERJA ---
+st.header("6️⃣ Sheet 6: Return Portofolio, Risiko, & Metrik Kinerja (Sharpe, Treynor, Alpha)")
+
+port_return_periode = np.sum(mean_return_stats * weights)
+port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_stats, weights)))
+
+port_return_skala = port_return_periode * faktor_waktu
+port_std_skala = port_std_periode * np.sqrt(faktor_waktu)
+
+market_proxy_return = df_return_stats.mean(axis=1)
+market_variance = market_proxy_return.var()
+if market_variance == 0:
+    market_variance = 0.0020
+
+beta_saham = []
+for col in df_return_stats.columns:
+    cov_val = pd.concat([df_return_stats[col], market_proxy_return], axis=1).cov().iloc[0, 1]
+    beta_i = cov_val / market_variance if market_variance != 0 else 1.0
+    beta_saham.append(beta_i)
+port_beta = np.sum(weights * np.array(beta_saham))
+
+sharpe_ratio = (port_return_skala - risk_free_rate) / port_std_skala if port_std_skala != 0 else 0
+treynor_ratio = (port_return_skala - risk_free_rate) / port_beta if port_beta != 0 else 0
+jensen_alpha = port_return_skala - (risk_free_rate + port_beta * (market_return - risk_free_rate))
+
+col_m1, col_m2, col3 = st.columns(3)
+col_
