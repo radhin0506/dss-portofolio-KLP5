@@ -245,7 +245,7 @@ st.dataframe(df_sheet1.style.format({"No": "{:.0f}", **{c: "Rp {:,.0f}" for c in
 
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 1 (Data Harga Close)", expanded=True):
     st.markdown(
-        "* **Rumus / Sumber Data:** $P_t = \\text{Harga Penutupan (Close Price)}$\n"
+        "* **Rumus / Sumber Data:** Harga Penutupan (Close Price) pada periode t\n"
         "* **Penjelasan Angka:** Tabel menampilkan histori harga saham emiten pilihan dalam Rupiah.\n"
         "* **Kesimpulan Sheet 1:** Data harga mentah ini berfungsi sebagai pondasi utama seluruh perhitungan return dan risiko."
     )
@@ -261,8 +261,8 @@ st.json({col: f"{val:.6f}" for col, val in mean_return_stats.items()})
 
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 2 (Return Realisasi & ER)", expanded=True):
     st.markdown(
-        "* **Rumus Return ($R_t$):** $R_t = \\frac{P_t - P_{t-1}}{P_{t-1}}$\n"
-        "* **Rumus Expected Return ($ER$):** $ER = \\frac{\\sum R_t}{n}$\n"
+        "* **Rumus Return:** R = (Harga_ini - Harga_lalu) / Harga_lalu\n"
+        "* **Rumus Expected Return (ER):** ER = Total Return / Jumlah Periode (n)\n"
         "* **Penjelasan Angka:** Menunjukkan persentase keuntungan/kerugian dan nilai rata-rata return historis.\n"
         "* **Kesimpulan Sheet 2:** Emiten dengan ER positif menunjukkan tren keuntungan yang baik."
     )
@@ -282,8 +282,8 @@ st.dataframe(df_sheet3.style.format({col: "{:.6f}" for col in kolom_angka_sheet3
 
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 3 (Varians & Standar Deviasi)", expanded=True):
     st.markdown(
-        f"* **Rumus Varians ($\sigma^2$):** $\\sigma^2 = \\frac{\\sum (R_t - ER)^2}{n - 1}$\n"
-        f"* **Rumus Standar Deviasi ($\sigma$):** $\\sigma = \\sqrt{\\sigma^2}$\n"
+        f"* **Rumus Varians:** Varians = Jumlah Kuadrat Selisih Return dari Mean / (n - 1)\n"
+        f"* **Rumus Standar Deviasi:** Standar Deviasi = Akar Kuadrat dari Varians\n"
         f"* **Penjelasan Angka:** Mengukur tingkat volatilitas (risiko). Disesuaikan dengan faktor waktu **{label_faktor_teks}**.\n"
         f"* **Kesimpulan Sheet 3:** Semakin kecil standar deviasi, semakin stabil dan rendah risiko saham tersebut."
     )
@@ -294,8 +294,8 @@ st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
 
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 4 (Covariance)", expanded=True):
     st.markdown(
-        "* **Rumus Kovarians ($Cov_{A,B}$):** $Cov_{A,B} = \\frac{\\sum (R_{A,t} - ER_A)(R_{B,t} - ER_B)}{n - 1}$\n"
-        "* **Penjelasan Angka:** Menunjukkan arah pergerakan bersama antar dua saham.\n"
+        "* **Rumus Kovarians:** Mengukur arah pergerakan bersama antar dua variabel saham.\n"
+        "* **Penjelasan Angka:** Menunjukkan keeratan arah fluktuasi antar emiten.\n"
         "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi karena dapat meredam risiko portofolio."
     )
 
@@ -306,7 +306,7 @@ st.dataframe(corr_matrix.style.format("{:.6f}"), use_container_width=True)
 
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 5 (Koefisien Korelasi)", expanded=True):
     st.markdown(
-        "* **Rumus Koefisien Korelasi ($r$):** $r_{A,B} = \\frac{Cov_{A,B}}{\\sigma_A \\times \\sigma_B}$\n"
+        "* **Rumus Koefisien Korelasi (r):** r = Cov(A,B) / (SD_A * SD_B)\n"
         "* **Penjelasan Angka:** Nilai berkisar dari -1 hingga +1.\n"
         "* **Kesimpulan Sheet 5:** Pilih emiten dengan korelasi rendah atau negatif untuk diversifikasi optimal."
     )
@@ -337,4 +337,48 @@ treynor_ratio = (port_return_skala - risk_free_rate) / port_beta if port_beta !=
 jensen_alpha = port_return_skala - (risk_free_rate + port_beta * (market_return - risk_free_rate))
 
 col_m1, col_m2, col3 = st.columns(3)
-col_
+col_m1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
+col_m2.metric("Risiko Portofolio", f"{port_std_skala:.2%}")
+col3.metric("Beta Portofolio", f"{port_beta:.2f}")
+
+col_m4, col_m5, col_m6 = st.columns(3)
+col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
+col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
+col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
+
+df_port_summary = pd.DataFrame({
+    "Emiten": saham_terpilih_list,
+    "Bobot (%)": [w * 100 for w in weights],
+    "Expected Return": mean_return_stats.values,
+    "Kontribusi Return": (mean_return_stats.values * weights)
+})
+st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.2f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
+
+with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
+    st.markdown(
+        f"* **Rumus Expected Return Portofolio:** E(Rp) = Sum(Bobot * ER)\n"
+        f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
+        f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
+        f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
+        f"**Kesimpulan Keseluruhan Portofolio:**\n"
+        f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan tingkat risiko **{port_std_skala:.2%}**.\n"
+        f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko yang diambil.\n"
+        f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli return pasar (outperform)."
+    )
+
+# --- GRAFIK KINERJA ---
+st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
+df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
+
+plt.clf()
+fig, ax = plt.subplots(figsize=(10, 4))
+
+for idx, saham in enumerate(df_norm.columns):
+    warna_pilih = WARNA_PASTEL[idx % len(WARNA_PASTEL)]
+    ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.2, color=warna_pilih)
+
+ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
+ax.set_xlabel("Tanggal")
+ax.legend(loc="upper left")
+ax.grid(True, linestyle="--", alpha=0.5)
+st.pyplot(fig)
