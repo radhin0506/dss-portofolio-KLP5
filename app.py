@@ -283,16 +283,25 @@ daftar_nama_pendek = ", ".join(df_harga_display.columns)
 
 if port_std_tahunan < 0.15:
     kategori_risiko = "Rendah (Konservatif) 🛡️"
-    deskripsi_keputusan = (
-        "**Rekomendasi Keputusan:** Layak Dipertimbangkan untuk Investasi Syariah Jangka Panjang.\n\n"
-        f"**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII "
-        f"(**{daftar_nama_pendek}**), portofolio ini memiliki volatilitas tahunan yang terkendali sebesar **{port_std_tahunan:.2%}** "
-        f"dengan potensi return tahunan **{port_return_tahunan:.2%}**. Alokasi bobot saat ini efektif menjaga keamanan modal."
-    )
+    deskripsi_keputusan = f"""
+**Rekomendasi Keputusan:** Layak Dipertimbangkan untuk Investasi Syariah Jangka Panjang.
+
+**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII (**{daftar_nama_pendek}**), portofolio ini memiliki volatilitas tahunan yang terkendali sebesar **{port_std_tahunan:.2%}** dengan potensi return tahunan **{port_return_tahunan:.2%}**. Alokasi bobot saat ini efektif menjaga keamanan modal.
+"""
 elif port_std_tahunan <= 0.25:
     kategori_risiko = "Sedang (Moderat) ⚖️"
-    deskripsi_keputusan = (
-        "**Rekomendasi Keputusan:** Seimbang & Layak Dieksekusi.\n\n"
-        f"**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII "
-        f"(**{daftar_nama_pendek}**), portofolio berada pada titik keseimbangan optimal antara potensi keuntungan tahunan (**{port_return_tahunan:.2%}**) "
-        f"dan risiko (**{port_std_tahunan:.2%}**). Nilai *Sharpe
+    deskripsi_keputusan = f"""
+**Rekomendasi Keputusan:** Seimbang & Layak Dieksekusi.
+
+**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII (**{daftar_nama_pendek}**), portofolio berada pada titik keseimbangan optimal antara potensi keuntungan tahunan (**{port_return_tahunan:.2%}**) dan risiko (**{port_std_tahunan:.2%}**). Nilai *Sharpe Ratio* sebesar **{sharpe_ratio:.2f}** menunjukkan efisiensi yang baik.
+"""
+else:
+    kategori_risiko = "Tinggi (Agresif) 🚀"
+    deskripsi_keputusan = f"""
+**Rekomendasi Keputusan:** Perlu Pengawasan Ketat / Khusus Investor Agresif.
+
+**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII (**{daftar_nama_pendek}**), portofolio ini mencatatkan fluktuasi harga tahunan yang tinggi (**{port_std_tahunan:.2%}**). Disarankan bagi investor yang siap menghadapi volatilitas pasar jangka pendek.
+"""
+
+st.info(f"**Profil Risiko Portofolio JII:** {kategori_risiko}")
+st.markdown(deskripsi_keputusan)
