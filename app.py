@@ -317,25 +317,8 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     if sumber_data == "Upload File Sendiri (Excel/CSV)":
         periode_hitung = "Data Upload Mandiri"
         jumlah_baris_data = len(df_harga_display)
-        
-        pilihan_skala = st.sidebar.selectbox(
-            "Pilih Penyesuaian Skala Waktu:",
-            options=[
-                "Gunakan Nilai Per Periode Murni (Faktor = 1)",
-                f"Sesuaikan dengan Jumlah Data ({jumlah_baris_data} baris setara 1 Tahun)",
-                "Setahun Penuh (Faktor Standar 52 Minggu)",
-                "Atur Faktor Manual"
-            ]
-        )
-        if "Faktor = 1" in pilihan_skala or "Nilai Per Periode" in pilihan_skala:
-            faktor_waktu = 1.0
-            label_faktor_teks = f"1 (Periode murni dari {jumlah_baris_data} data)"
-        elif "52 Minggu" in pilihan_skala:
-            faktor_waktu = 52.0
-            label_faktor_teks = "52 minggu (standar tahunan)"
-        else:
-            faktor_waktu = st.sidebar.number_input("Masukkan Angka Faktor Pengali Custom:", value=1.0, step=0.5)
-            label_faktor_teks = f"Custom ({faktor_waktu})"
+        faktor_waktu = 1.0
+        label_faktor_teks = f"1 (Nilai per periode murni dari {jumlah_baris_data} data)"
 
     saham_terpilih_list = list(df_harga_display.columns)
 
@@ -450,7 +433,7 @@ if df_return_stats.empty:
 
 mean_return_stats = df_return_stats.mean()
 
-# PERBAIKAN MATRIKS KOVARIAN (ANTAR EMITEN)
+# Matriks Kovarians Antar Emiten (Diagonal dikosongkan)
 cov_matrix_stats = df_return_stats.cov()
 for col in cov_matrix_stats.columns:
     cov_matrix_stats.loc[col, col] = np.nan
@@ -458,8 +441,11 @@ for col in cov_matrix_stats.columns:
 std_stats = df_return_stats.std()
 
 port_return_periode = np.sum(mean_return_stats * weights)
-port_std_periode = np.sqrt(np.dot(weights.T, np.dot(df_return_stats.cov().values, weights)))
+port_var_periode = np.dot(weights.T, np.dot(df_return_stats.cov().values, weights))
+port_std_periode = np.sqrt(port_var_periode)
+
 port_return_skala = port_return_periode * faktor_waktu
+port_var_skala = port_var_periode * faktor_waktu
 port_std_skala = port_std_periode * np.sqrt(faktor_waktu)
 
 market_proxy_return = df_return_stats.mean(axis=1)
@@ -575,7 +561,7 @@ else:
             "* **Kesimpulan Sheet 3:** Nilai standar deviasi menunjukkan seberapa besar volatilitas atau risiko masing-masing aset."
         )
 
-    # --- SHEET 4: COVARIANCE (FIXED) ---
+    # --- SHEET 4: COVARIANCE ---
     st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
     st.dataframe(cov_matrix_stats.style.format("{:.6f}", na_rep="-"), use_container_width=True)
 
@@ -604,15 +590,16 @@ else:
     if "Otomatis" in mode_bobot:
         st.info(f"🤖 **Mode Optimasi Aktif:** `{mode_bobot}` — Proporsi bobot di bawah ini telah dihitung otomatis untuk memaksimalkan kinerja tersebut.")
 
-    col_m1, col_m2, col3 = st.columns(3)
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     col_m1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
-    col_m2.metric("Risiko Portofolio", f"{port_std_skala:.2%}")
-    col3.metric("Beta Portofolio", f"{port_beta:.4f}")
+    col_m2.metric("Variance Portofolio", f"{port_var_skala:.6f}")
+    col_m3.metric("Risiko Portofolio (SD)", f"{port_std_skala:.2%}")
+    col_m4.metric("Beta Portofolio", f"{port_beta:.4f}")
 
-    col_m4, col_m5, col_m6 = st.columns(3)
-    col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
-    col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
-    col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
+    col_m5, col_m6, col_m7 = st.columns(3)
+    col_m5.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
+    col_m6.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
+    col_m7.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
 
     df_port_summary = pd.DataFrame({
         "Emiten": saham_terpilih_list,
@@ -625,12 +612,14 @@ else:
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Kinerja)", expanded=True):
         st.markdown(
             f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
+            f"* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **{port_var_skala:.6f}** (Memperhitungkan bobot dan kovarians antar aset)\n"
+            f"* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **{port_std_skala:.4f} ({port_std_skala:.2%})**\n"
             f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
             f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
             f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
             f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
             f"**Kesimpulan Keseluruhan Portofolio:**\n"
-            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan tingkat risiko **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
+            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan Variance Portofolio **{port_var_skala:.6f}** dan Risiko (Standar Deviasi) sebesar **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
             f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
             f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
         )
