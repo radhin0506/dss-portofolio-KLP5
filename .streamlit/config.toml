@@ -1,6 +1,15 @@
+[server]
+headless = true
+
 [theme]
 primaryColor = "#B08968"
 backgroundColor = "#FDFBF7"
 secondaryBackgroundColor = "#F4ECE1"
 textColor = "#4A3B32"
 font = "sans serif"
+
+[client]
+showSidebarNavigation = true
+
+[ui]
+hideTopBar = true
