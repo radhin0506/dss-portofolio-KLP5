@@ -66,8 +66,8 @@ rentang_waktu = st.sidebar.selectbox(
     options=["1 Tahun", "2 Tahun", "3 Tahun", "5 Tahun"],
     index=1
 )
-mapping_periode = {"1 Tahun": "1y", "2 Tahun": "2y", "3 Tahun": "3y", "5 Tahun": "5y"}
-periode_yf = mapping_periode[rentang_waktu]
+mapping_tahun = {"1 Tahun": 1, "2 Tahun": 2, "3 Tahun": 3, "5 Tahun": 5}
+jumlah_tahun = mapping_tahun[rentang_waktu]
 
 # Pilihan Frekuensi Perhitungan
 periode_hitung = st.sidebar.selectbox(
@@ -75,10 +75,8 @@ periode_hitung = st.sidebar.selectbox(
     options=["Harian", "Mingguan", "Bulanan", "Tahunan"]
 )
 
-# PERBAIKAN: Penyesuaian otomatis periode yfinance agar data tidak terpotong pendek
-# Jika harian/mingguan dipilih dengan rentang 1 tahun, tarik minimal 2 tahun data agar lengkap
-if periode_hitung in ["Harian", "Mingguan"] and periode_yf == "1y":
-    periode_yf = "2y"
+# Selalu tarik data lebih panjang 1 tahun dari pilihan agar setelah resampling tidak terpotong
+periode_yf = f"{jumlah_tahun + 1}y"
 
 
 # --- 3. MENGAMBIL DATA REAL-TIME DARI WEB ---
@@ -97,6 +95,7 @@ if df_raw.empty:
     st.stop()
 
 df_raw = df_raw[saham_terpilih]
+df_raw.index = pd.to_datetime(df_raw.index)
 
 aturan_periode = {
     "Harian": {"rule": "D", "faktor": 252, "ket": "252 hari perdagangan bursa dalam 1 tahun"},
@@ -114,15 +113,10 @@ if periode_hitung == "Harian":
 else:
     df_harga = df_raw.resample(rule_terpilih).last().dropna()
 
-# Batasi kembali sesuai pilihan rentang waktu user setelah resample
-if rentang_waktu == "1 Tahun":
-    df_harga = df_harga.last("365D")
-elif rentang_waktu == "2 Tahun":
-    df_harga = df_harga.last("730D")
-elif rentang_waktu == "3 Tahun":
-    df_harga = df_harga.last("1095D")
-elif rentang_waktu == "5 Tahun":
-    df_harga = df_harga.last("1825D")
+# PERBAIKAN PENGGANTI .last(): Gunakan pd.DateOffset agar aman di semua versi Pandas
+tanggal_akhir = df_harga.index.max()
+tanggal_mulai = tanggal_akhir - pd.DateOffset(years=jumlah_tahun)
+df_harga = df_harga[df_harga.index >= tanggal_mulai]
 
 df_harga_display = df_harga.copy()
 df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
@@ -191,10 +185,12 @@ st.header(f"1️⃣ Sheet Data Harga Penutupan Saham JII ({periode_hitung})")
 st.dataframe(df_harga_display.tail(10).style.format("Rp {:,.0f}"), use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 1 (Data Harga Historis)", expanded=True):
+    tgl_awal_str = df_harga_display.index.min().strftime('%d %b %Y')
+    tgl_akhir_str = df_harga_display.index.max().strftime('%d %b %Y')
     st.markdown(f"""
     * **Cakupan Emiten:** Konstituen resmi **Jakarta Islamic Index (JII)**.
-    * **Frekuensi & Rentang:** Menampilkan data selama **{rentang_waktu}** dengan frekuensi **{periode_hitung.lower()}** ({len(df_harga_display)} titik data valid).
-    * **📌 Kesimpulan Sheet 1:** Data harga berhasil ditarik secara lengkap dan konsisten sesuai rentang waktu yang dipilih tanpa ada pemotongan bulan.
+    * **Rentang & Frekuensi Data:** Menampilkan data lengkap selama **{rentang_waktu}** (dari **{tgl_awal_str}** s.d. **{tgl_akhir_str}**) dengan frekuensi **{periode_hitung.lower()}** ({len(df_harga_display)} titik data valid).
+    * **📌 Kesimpulan Sheet 1:** Data harga berhasil ditarik secara utuh dan konsisten dari awal hingga akhir rentang waktu yang dipilih.
     """)
 
 # --- SHEET 2: RETURN ---
@@ -204,7 +200,7 @@ st.dataframe(df_return.tail(10).style.format("{:.2%}"), use_container_width=True
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 2 (Return Saham)", expanded=True):
     st.markdown("""
     * **Rumus:** $R_t = \\frac{P_t - P_{t-1}}{P_{t-1}}$ (Persentase perubahan harga antar periode).
-    * **📌 Kesimpulan Sheet 2:** Nilai return positif menunjukkan adanya apresiasi harga, sedangkan nilai negatif menunjukkan koreksi harga pada periode tersebut.
+    * **📌 Kesimpulan Sheet 2:** Nilai return positif menunjukkan adanya kenaikan harga saham pada periode tersebut, sedangkan nilai negatif menunjukkan terjadinya koreksi/penurunan harga.
     """)
 
 # --- SHEET 3: STATISTIK INDIVIDUAL ---
@@ -223,9 +219,11 @@ df_statistik = pd.DataFrame({
 st.dataframe(df_statistik.style.format("{:.4f}"), use_container_width=True)
 
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 3 (Statistik & Annualisasi)", expanded=True):
+    saham_risiko_tinggi = df_statistik["Risiko / Volatilitas (Tahunan)"].idxmax()
+    saham_return_tinggi = df_statistik["Expected Return (Tahunan)"].idxmax()
     st.markdown(f"""
     * **Kalkulasi:** Mengukur rata-rata return dan tingkat risiko (*Standard Deviation*) masing-masing saham JII yang disetarakan dalam skala 1 tahun (dikalikan faktor **{faktor_waktu}**).
-    * **📌 Kesimpulan Sheet 3:** Saham dengan standar deviasi tahunan tertinggi memiliki fluktuasi harga paling agresif di antara emiten JII lainnya.
+    * **📌 Kesimpulan Sheet 3:** Emiten **{saham_return_tinggi}** mencatatkan potensi *return* tahunan tertinggi, sedangkan **{saham_risiko_tinggi}** memiliki tingkat fluktuasi risiko paling agresif.
     """)
 
 # --- SHEET 4: MATRIKS KOVARIANS ---
@@ -235,7 +233,7 @@ st.dataframe(cov_matrix.style.format("{:.6f}"), use_container_width=True)
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 4 (Matriks Kovarians)", expanded=True):
     st.markdown("""
     * **Kalkulasi:** Mengukur arah pergerakan bersama antar saham syariah untuk memperhitungkan efek diversifikasi.
-    * **📌 Kesimpulan Sheet 4:** Nilai kovarians yang negatif atau mendekati nol mengindikasikan bahwa pasangan saham tersebut sangat efektif untuk menurunkan risiko portofolio secara keseluruhan.
+    * **📌 Kesimpulan Sheet 4:** Nilai kovarians yang negatif atau mendekati nol mengindikasikan bahwa pasangan saham tersebut bergerak tidak searah, sehingga sangat efektif untuk menekan risiko gabungan portofolio.
     """)
 
 # --- SHEET 5: EVALUASI & SARAN PENGAMBILAN BOBOT ---
@@ -248,8 +246,8 @@ port_std_tahunan = port_std_periode * np.sqrt(faktor_waktu)
 sharpe_ratio = port_return_tahunan / port_std_tahunan if port_std_tahunan != 0 else 0
 
 col1, col2, col3 = st.columns(3)
-col1.metric(f"Expected Return Tahunan", f"{port_return_tahunan:.2%}")
-col2.metric(f"Risiko Portofolio Tahunan", f"{port_std_tahunan:.2%}")
+col1.metric("Expected Return Tahunan", f"{port_return_tahunan:.2%}")
+col2.metric("Risiko Portofolio Tahunan", f"{port_std_tahunan:.2%}")
 col3.metric("Sharpe Ratio (Efisiensi)", f"{sharpe_ratio:.2f}")
 
 with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 5 (Portofolio Gabungan)", expanded=True):
@@ -262,7 +260,7 @@ with st.expander("📘 Penjelasan Detail & Kesimpulan Sheet 5 (Portofolio Gabung
        * **Sharpe Ratio:** **{sharpe_ratio:.2f}**.
     2. **Saran Alokasi Bobot Optimal:**
        {'<br>'.join(saran_teks)}
-    * **📌 Kesimpulan Sheet 5:** Kombinasi bobot saat ini menghasilkan efisiensi portofolio dengan rasio keuntungan terhadap risiko sebesar **{sharpe_ratio:.2f}**.
+    * **📌 Kesimpulan Sheet 5:** Kombinasi bobot aktif saat ini menghasilkan tingkat efisiensi portofolio (*Sharpe Ratio*) sebesar **{sharpe_ratio:.2f}**.
     """)
 
 # --- GRAFIK KINERJA DENGAN WARNA PASTEL ---
@@ -271,7 +269,7 @@ df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
 fig, ax = plt.subplots(figsize=(10, 4))
 for idx, saham in enumerate(df_norm.columns):
     warna_ini = WARNA_PASTEL[idx % len(WARNA_PASTEL)]
-    ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.0, color=warna_ini)
+    ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.2, color=warna_ini)
 ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
 ax.set_xlabel("Tanggal")
 ax.legend()
@@ -297,16 +295,4 @@ elif port_std_tahunan <= 0.25:
         "**Rekomendasi Keputusan:** Seimbang & Layak Dieksekusi.\n\n"
         f"**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII "
         f"(**{daftar_nama_pendek}**), portofolio berada pada titik keseimbangan optimal antara potensi keuntungan tahunan (**{port_return_tahunan:.2%}**) "
-        f"dan risiko (**{port_std_tahunan:.2%}**). Nilai *Sharpe Ratio* sebesar **{sharpe_ratio:.2f}** menunjukkan efisiensi yang baik."
-    )
-else:
-    kategori_risiko = "Tinggi (Agresif) 🚀"
-    deskripsi_keputusan = (
-        "**Rekomendasi Keputusan:** Perlu Pengawasan Ketat / Khusus Investor Agresif.\n\n"
-        f"**Analisis Data Pasar:** Berdasarkan analisis frekuensi **{periode_hitung.lower()}** pada kombinasi emiten JII "
-        f"(**{daftar_nama_pendek}**), portofolio ini mencatatkan fluktuasi harga tahunan yang tinggi (**{port_std_tahunan:.2%}**). "
-        "Disarankan bagi investor yang siap menghadapi volatilitas pasar jangka pendek."
-    )
-
-st.info(f"**Profil Risiko Portofolio JII:** {kategori_risiko}")
-st.markdown(deskripsi_keputusan)
+        f"dan risiko (**{port_std_tahunan:.2%}**). Nilai *Sharpe
