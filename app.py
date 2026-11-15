@@ -9,7 +9,7 @@ st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide
 
 # --- TAG HTML VERIFIKASI GOOGLE SEARCH CONSOLE ---
 st.markdown(
-    '<meta name="google-site-verification" content="MASUKKAN_KODE_UNIK_DARI_GOOGLE_DISINI" />', 
+    <meta name="google-site-verification" content="z-q-EAE6HXg5c7lr9tOGyPoYVe0e6Av-dgmyxlenG4I" /> 
     unsafe_allow_html=True
 )
 
