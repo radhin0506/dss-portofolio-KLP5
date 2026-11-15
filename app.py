@@ -449,11 +449,15 @@ if df_return_stats.empty:
     df_return_stats = df_return
 
 mean_return_stats = df_return_stats.mean()
-cov_matrix_stats = df_return_stats.cov()
+cov_matrix_stats = df_return_stats.copy()
+# Kosongkan diagonal utama kovarians (saham dengan saham yang sama)
+for col in cov_matrix_stats.columns:
+    cov_matrix_stats.loc[col, col] = np.nan
+
 std_stats = df_return_stats.std()
 
 port_return_periode = np.sum(mean_return_stats * weights)
-port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_stats, weights)))
+port_std_periode = np.sqrt(np.dot(weights.T, np.dot(df_return_stats.cov().values, weights)))
 port_return_skala = port_return_periode * faktor_waktu
 port_std_skala = port_std_periode * np.sqrt(faktor_waktu)
 
@@ -570,14 +574,14 @@ else:
             "* **Kesimpulan Sheet 3:** Nilai standar deviasi menunjukkan seberapa besar volatilitas atau risiko masing-masing aset."
         )
 
-    # --- SHEET 4: COVARIANCE ---
+    # --- SHEET 4: COVARIANCE (DIAGONAL DIKOSONGKAN) ---
     st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
-    st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
+    st.dataframe(cov_matrix_stats.style.format("{:.6f}", na_rep="-"), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 4 (Covariance)", expanded=True):
         st.markdown(
             "* **Rumus Kovarians:** Mengukur arah pergerakan bersama antar dua variabel saham.\n"
-            "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi portofolio."
+            "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi portofolio. Nilai pada saham yang sama (diagonal) dikosongkan agar tidak membingungkan."
         )
 
     # --- SHEET 5: KOEFISIEN KORELASI ---
