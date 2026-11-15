@@ -168,13 +168,11 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         uploaded_file = st.sidebar.file_uploader("Unggah file data harga Close (.xlsx / .csv):", type=["xlsx", "csv"])
         if uploaded_file is not None:
             try:
-                # 1. Baca seluruh file mentah dengan aman sebagai teks (string)
                 if uploaded_file.name.endswith(".csv"):
                     df_raw = pd.read_csv(uploaded_file, header=None, dtype=str, encoding='utf-8', on_bad_lines='skip')
                 else:
                     df_raw = pd.read_excel(uploaded_file, header=None, dtype=str)
                 
-                # 2. Deteksi baris header secara aman dengan konversi string anti-float error
                 header_row_idx = 0
                 for idx, row in df_raw.iterrows():
                     row_vals = [str(val).lower() for val in row.dropna().values]
@@ -182,17 +180,14 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                         header_row_idx = idx
                         break
                 
-                # Muat ulang dengan baris header yang terdeteksi
                 if uploaded_file.name.endswith(".csv"):
                     df_clean = pd.read_csv(uploaded_file, skiprows=header_row_idx, dtype=str, encoding='utf-8', on_bad_lines='skip')
                 else:
                     df_clean = pd.read_excel(uploaded_file, skiprows=header_row_idx, dtype=str)
 
-                # Bersihkan nama kolom
                 df_clean.columns = [str(c).strip() for c in df_clean.columns]
                 df_clean = df_clean.loc[:, ~df_clean.columns.str.contains('^Unnamed', case=False, na=False)]
 
-                # 3. Deteksi Kolom Tanggal Universal secara Aman
                 kolom_tgl = None
                 for col in df_clean.columns:
                     parsed_date = pd.to_datetime(df_clean[col], errors='coerce')
@@ -208,15 +203,14 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                     df_clean.index = pd.to_datetime(df_clean.iloc[:, 0], errors='coerce')
                     df_clean = df_clean.iloc[:, 1:]
 
-                # 4. Pembersihan Data Angka Universal
                 for col in df_clean.columns:
                     ser = df_clean[col].astype(str)
                     ser = (
                         ser.str.replace('Rp', '', case=False)
                            .str.replace('IDR', '', case=False)
                            .str.replace('$', '', regex=False)
-                           .str.replace('.', '', regex=False)     # Hapus titik ribuan
-                           .str.replace(',', '.', regex=False)    # Ubah koma jadi titik desimal
+                           .str.replace('.', '', regex=False)
+                           .str.replace(',', '.', regex=False)
                            .str.strip()
                     )
                     df_clean[col] = pd.to_numeric(ser, errors='coerce')
@@ -430,7 +424,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     weights = np.array(bobot_input) / total_bobot
 
 else:
-    # Data Dummy untuk Beranda agar halaman Home tetap bisa dimuat tanpa error
     dates = pd.date_range(start="2026-01-01", periods=10, freq="W")
     df_harga_display = pd.DataFrame({
         "BRIS": [2000, 2050, 2100, 2080, 2150, 2200, 2180, 2250, 2300, 2350],
@@ -558,23 +551,22 @@ else:
             "* **Kesimpulan Sheet 2:** Emiten dengan ER positif menunjukkan tren keuntungan yang baik."
         )
 
-    # --- SHEET 3: VARIANS & STANDAR DEVIASI ---
+    # --- SHEET 3: VARIANS & STANDAR DEVIASI (DIPERBARUI TANPA SKALA WAKTU) ---
     st.header("3️⃣ Sheet 3: Varians & Standar Deviasi")
     df_sheet3 = pd.DataFrame({
         "Emiten": saham_terpilih_list,
         f"Mean Return ({periode_hitung})": mean_return_stats.values,
         "Variance": df_return_stats.var().values,
-        "Standar Deviasi (Risiko)": std_stats.values,
-        "Expected Return (Skala Waktu)": mean_return_stats.values * faktor_waktu,
-        "Risiko (Skala Waktu)": std_stats.values * np.sqrt(faktor_waktu)
+        "Standar Deviasi (Risiko)": std_stats.values
     })
-    kolom_angka_sheet3 = [f"Mean Return ({periode_hitung})", "Variance", "Standar Deviasi (Risiko)", "Expected Return (Skala Waktu)", "Risiko (Skala Waktu)"]
+    kolom_angka_sheet3 = [f"Mean Return ({periode_hitung})", "Variance", "Standar Deviasi (Risiko)"]
     st.dataframe(df_sheet3.style.format({col: "{:.6f}" for col in kolom_angka_sheet3}), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 3 (Varians & Standar Deviasi)", expanded=True):
         st.markdown(
-            f"* **Faktor Skala Waktu Aktif:** {label_faktor_teks} (Faktor = `{faktor_waktu}`)\n"
-            "* **Kesimpulan Sheet 3:** Skala waktu disesuaikan agar angka hasil analisis proporsional dengan jumlah data Anda."
+            "* **Rumus Varians (σ²):** Mengukur tingkat penyebaran fluktuasi harga emiten.\n"
+            "* **Rumus Standar Deviasi (σ):** Akar kuadrat dari varians sebagai ukuran risiko mutlak.\n"
+            "* **Kesimpulan Sheet 3:** Nilai standar deviasi menunjukkan seberapa besar volatilitas atau risiko masing-masing aset."
         )
 
     # --- SHEET 4: COVARIANCE ---
