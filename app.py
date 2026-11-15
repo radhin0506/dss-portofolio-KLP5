@@ -298,7 +298,7 @@ jensen_alpha = port_return_skala - (risk_free_rate + port_beta * (market_return 
 # =====================================================================
 
 if menu_pilihan == "🏠 Beranda (Home)":
-    st.title("🕌 Selamat Datang di Sistem Pendukung Keputusan (DSS) Portofolio Saham Syariah")
+    st.title("🕌 Sistem Pendukung Keputusan (DSS) Portofolio Saham Syariah")
     st.markdown("### Analisis Portofolio Berbasis Konstituen Jakarta Islamic Index (JII)")
     
     st.info(
@@ -306,18 +306,6 @@ if menu_pilihan == "🏠 Beranda (Home)":
         "dalam merancang, mengukur risiko, menghitung return, serta mengevaluasi kinerja portofolio saham syariah "
         "secara komprehensif berdasarkan kaidah portofolio Modern Markowitz."
     )
-    
-    st.subheader("📊 Ringkasan Performa Portofolio Saat Ini")
-    
-    col_h1, col_h2, col_h3 = st.columns(3)
-    col_h1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
-    col_h2.metric("Risiko Portofolio (Std Dev)", f"{port_std_skala:.2%}")
-    col_h3.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}")
-    
-    col_h4, col_h5, col_h6 = st.columns(3)
-    col_h4.metric("Beta Portofolio", f"{port_beta:.4f}")
-    col_h5.metric("Treynor Ratio", f"{treynor_ratio:.4f}")
-    col_h6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}")
     
     st.markdown("---")
     st.subheader("📑 Struktur Analisis 6 Sheet")
