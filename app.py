@@ -228,30 +228,30 @@ WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25"
 
 
 # =====================================================================
-# TAMPILAN SHEET LENGKAP DENGAN PENJELASAN SEDERHANA
+# TAMPILAN SHEET LENGKAP DENGAN PENJELASAN & CARA HITUNGNYA
 # =====================================================================
 
 # --- SHEET 1: DATA HARGA ---
 st.header(f"1️⃣ Sheet Data Harga Penutupan Saham JII ({periode_hitung})")
 st.dataframe(df_harga_display.style.format("Rp {:,.0f}"), use_container_width=True)
 
-with st.expander("💡 Penjelasan Sederhana - Sheet 1 (Data Harga)", expanded=True):
+with st.expander("💡 Penjelasan & Dari Mana Angka Ini Didapat - Sheet 1 (Data Harga)", expanded=True):
     st.markdown("""
-    * **Isi Tabel:** Menampilkan daftar harga saham penutupan (*Close*) harian, mingguan, atau bulanan sesuai pilihan Anda di sebelah kiri.
-    * **Cara Baca:** Angka-angka di atas adalah harga asli saham dalam satuan Rupiah. Anda bisa melihat pergerakan naik atau turun harga tiap saham dari waktu ke waktu pada rentang tanggal yang dipilih.
+    * **Sumber Angka:** Ditarik langsung secara *real-time* dari server Bursa Efek Indonesia (BEI) melalui API `yfinance` berupa harga penutupan murni (*Close Price*) dalam satuan Rupiah.
+    * **Cara Kerja:** Aplikasi memfilter data secara presisi sesuai tahun atau tanggal yang Anda pilih di menu sebelah kiri (misal tahun 2026 saja) tanpa mencampur data dari tahun sebelumnya. Ini berfungsi sebagai tabel database utama.
     """)
 
 # --- SHEET 2: RETURN ---
 st.header(f"2️⃣ Sheet Perhitungan Return / Imbal Hasil ({periode_hitung})")
 st.dataframe(df_return.style.format("{:.2%}"), use_container_width=True)
 
-with st.expander("💡 Penjelasan Sederhana - Sheet 2 (Return / Imbal Hasil)", expanded=True):
+with st.expander("💡 Penjelasan & Dari Mana Angka Ini Didapat - Sheet 2 (Return)", expanded=True):
     st.markdown("""
-    * **Isi Tabel:** Menampilkan persentase perubahan harga (keuntungan atau kerugian) dari satu periode ke periode berikutnya.
-    * **Cara Baca:** 
-      * Nilai **positif (+)** artinya harga saham sedang naik (untung).
-      * Nilai **negatif (-)** artinya harga saham sedang turun (rugi).
-      * Nilai **0%** adalah titik awal perhitungan pada baris pertama.
+    * **Sumber Angka:** Dihitung otomatis dari perbandingan harga saham pada periode saat ini dengan periode sebelumnya di Sheet 1.
+    * **Cara Hitung:** 
+      * Rumus: `(Harga Sekarang - Harga Sebelumnya) / Harga Sebelumnya`
+      * Contoh: Jika bulan lalu harganya Rp 2.500 lalu bulan ini jadi Rp 2.750, maka hitungannya `(2.750 - 2.500) / 2.500 = +10%`. 
+      * Nilai positif artinya untung, nilai negatif artinya rugi.
     """)
 
 # --- SHEET 3: STATISTIK INDIVIDUAL ---
@@ -265,23 +265,24 @@ df_statistik = pd.DataFrame({
 })
 st.dataframe(df_statistik.style.format("{:.4f}"), use_container_width=True)
 
-with st.expander("💡 Penjelasan Sederhana - Sheet 3 (Statistik & Risiko)", expanded=True):
-    st.markdown("""
-    * **Isi Tabel:** Rangkuman performa masing-masing saham secara tahunan.
-    * **Cara Baca:**
-      * **Expected Return (Tahunan):** Perkiraan persentase keuntungan yang bisa didapat dalam 1 tahun.
-      * **Risiko / Volatilitas (Tahunan):** Seberapa liar atau besar naik-turun harga saham tersebut. Semakin besar nilai risikonya, semakin besar pula potensi untung atau ruginya.
+with st.expander("💡 Penjelasan & Dari Mana Angka Ini Didapat - Sheet 3 (Statistik & Risiko)", expanded=True):
+    st.markdown(f"""
+    * **Sumber Angka:** Diolah dari tabel Return di Sheet 2 menggunakan rumus statistik standar keuangan.
+    * **Cara Hitung:**
+      * **Mean Return (Rata-rata):** Menjumlahkan seluruh return lalu dibagi jumlah periode.
+      * **Std. Deviasi (Risiko per periode):** Mengukur seberapa besar naik-turunnya fluktuasi harga saham.
+      * **Expected Return Tahunan:** Mean Return dikalikan dengan **Faktor Waktu ({faktor_waktu})** (misal dikali 12 jika bulanan, atau dikali 252 jika harian).
+      * **Risiko Tahunan:** Standar deviasi dikalikan dengan akar kuadrat dari Faktor Waktu ($\sqrt{{Faktor}}$).
     """)
 
 # --- SHEET 4: MATRIKS KOVARIANS ---
 st.header("4️⃣ Sheet Matriks Kovarians (Covariance Matrix)")
 st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
 
-with st.expander("💡 Penjelasan Sederhana - Sheet 4 (Matriks Kovarians)", expanded=True):
+with st.expander("💡 Penjelasan & Dari Mana Angka Ini Didapat - Sheet 4 (Matriks Kovarians)", expanded=True):
     st.markdown("""
-    * **Isi Tabel:** Angka yang menunjukkan bagaimana hubungan antar dua saham bergerak bersamaan.
-    * **Cara Baca:** 
-      * Jika nilainya **negatif**, artinya kedua saham sering bergerak berlawanan arah (satu naik, yang lain turun). Ini sangat bagus untuk portofolio karena bisa saling menutupi risiko (diversifikasi).
+    * **Sumber Angka:** Dihitung dengan membandingkan pola pergerakan naik-turun antar dua saham secara bersamaan (misal saham A terhadap saham B).
+    * **Cara Hitung:** Menggunakan rumus statistik kovarians sampel. Jika hasilnya **negatif**, artinya kedua saham sering bergerak berlawanan arah, yang mana sangat bagus untuk menekan risiko gabungan portofolio (diversifikasi).
     """)
 
 # --- SHEET 5: EVALUASI, GRAFIK & KEPUTUSAN ---
@@ -290,57 +291,4 @@ st.header("5️⃣ Sheet Evaluasi Portofolio & Saran Pengambilan Bobot")
 port_return_periode = np.sum(mean_return_stats * weights)
 port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_stats, weights)))
 port_return_tahunan = port_return_periode * faktor_waktu
-port_std_tahunan = port_std_periode * np.sqrt(faktor_waktu)
-sharpe_ratio = port_return_tahunan / port_std_tahunan if port_std_tahunan != 0 else 0
-
-col1, col2, col3 = st.columns(3)
-col1.metric("Expected Return Tahunan", f"{port_return_tahunan:.2%}")
-col2.metric("Risiko Portofolio Tahunan", f"{port_std_tahunan:.2%}")
-col3.metric("Sharpe Ratio (Efisiensi)", f"{sharpe_ratio:.2f}")
-
-with st.expander("💡 Penjelasan Sederhana - Sheet 5 (Evaluasi Portofolio)", expanded=True):
-    saran_teks = [f"- **{s.replace('.JK', '')}**: bobot optimal **{bobot_terbaik[i]*100:.1f}%**" for i, s in enumerate(saham_terpilih)]
-    st.markdown(f"""
-    * **Expected Return Tahunan:** Total perkiraan keuntungan gabungan dari seluruh saham pilihan Anda dalam setahun (**{port_return_tahunan:.2%}**).
-    * **Risiko Portofolio Tahunan:** Tingkat ketidakpastian atau naik-turun gabungan dari portofolio Anda (**{port_std_tahunan:.2%}**).
-    * **Sharpe Ratio:** Tingkat efisiensi investasi. Semakin tinggi nilainya, semakin bagus keuntungan yang Anda dapatkan dibandingkan dengan risiko yang harus ditanggung.
-    <br><br>
-    **Saran Alokasi Bobot Terbaik (Agar Keuntungan Maksimal & Risiko Minimal):**<br>
-    """ + "<br>".join(saran_teks), unsafe_allow_html=True)
-
-# --- GRAFIK KINERJA ---
-st.subheader("📊 Visualisasi Pertumbuhan Harga Saham JII (Base = 100)")
-df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
-
-plt.clf()
-fig, ax = plt.subplots(figsize=(10, 4))
-
-for idx, saham in enumerate(df_norm.columns):
-    warna_pilih = WARNA_PASTEL[idx % len(WARNA_PASTEL)]
-    ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.2, color=warna_pilih)
-
-ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
-ax.set_xlabel("Tanggal")
-ax.legend(loc="upper left")
-ax.grid(True, linestyle="--", alpha=0.5)
-st.pyplot(fig)
-
-with st.expander("💡 Penjelasan Grafik Pertumbuhan", expanded=False):
-    st.markdown("Grafik di atas menunjukkan perbandingan pertumbuhan modal Anda jika dimulai dari angka yang sama yaitu **100** pada awal periode. Saham dengan garis paling tinggi adalah saham yang memberikan pertumbuhan paling baik selama rentang waktu tersebut.")
-
-# --- KESIMPULAN & REKOMENDASI ---
-st.subheader("💡 Kesimpulan & Rekomendasi Keputusan Portofolio Syariah")
-daftar_nama_pendek = ", ".join(df_harga_display.columns)
-
-if port_std_tahunan < 0.15:
-    kategori_risiko = "Rendah (Konservatif) 🛡️"
-    deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) sangat cocok untuk investasi jangka panjang karena risikonya kecil (**{port_std_tahunan:.2%}** per tahun) dengan potensi keuntungan **{port_return_tahunan:.2%}**."
-elif port_std_tahunan <= 0.25:
-    kategori_risiko = "Sedang (Moderat) ⚖️"
-    deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) berada di posisi yang pas dan seimbang antara potensi keuntungan (**{port_return_tahunan:.2%}**) dan risikonya (**{port_std_tahunan:.2%}**). Sangat layak untuk dieksekusi."
-else:
-    kategori_risiko = "Tinggi (Agresif) 🚀"
-    deskripsi = f"Portofolio emiten JII (**{daftar_nama_pendek}**) memiliki pergerakan yang cukup liar dan berisiko tinggi (**{port_std_tahunan:.2%}**). Cocok bagi investor yang siap dengan fluktuasi pasar jangka pendek demi memburu keuntungan besar."
-
-st.info(f"**Profil Risiko Portofolio JII:** {kategori_risiko}")
-st.markdown(deskripsi)
+port_std_tahunan = port_std_periode * np.sqrt(faktor_
