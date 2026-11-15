@@ -52,7 +52,6 @@ st.markdown(
 # --- MEMBACA FILE EXCEL TRADINGVIEW OTOMATIS DARI SERVER ---
 @st.cache_data
 def load_data_tradingview():
-    # Menggunakan file Excel lokal project Anda
     file_path = "Data_Harga_Close_Mingguan_BRIS_CTRA_TLKM.xlsx"
     df_close = pd.read_excel(file_path, sheet_name="Harga Close Mingguan")
     return df_close
@@ -69,7 +68,6 @@ if "Tanggal" in df_harga_raw.columns:
     df_harga_raw = df_harga_raw.set_index("Tanggal")
 
 df_harga_display = df_harga_raw.copy()
-# Membersihkan nama kolom agar bersih (misal Close BRIS -> BRIS)
 df_harga_display.columns = [c.replace("Close ", "").replace(".JK", "").strip() for c in df_harga_display.columns]
 
 saham_terpilih = list(df_harga_display.columns)
@@ -204,9 +202,11 @@ port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_stats, weights)))
 port_return_skala = port_return_periode * faktor_waktu
 port_std_skala = port_std_periode * np.sqrt(faktor_waktu)
 
-# Perhitungan Beta Portofolio menggunakan Market Proxy (rata-rata return portofolio sebagai proksi pasar)
+# Perhitungan Beta Portofolio menggunakan Market Proxy
 market_proxy_return = df_return_stats.mean(axis=1)
-market_variance = market_proxy_return.var() if market_variance != 0 else 0.0020
+market_variance = market_proxy_return.var()
+if market_variance == 0:
+    market_variance = 0.0020
 
 beta_saham = []
 for col in df_return_stats.columns:
@@ -223,4 +223,44 @@ jensen_alpha = port_return_skala - (risk_free_rate + port_beta * (market_return 
 # Dashboard Metrik
 col_m1, col_m2, col3 = st.columns(3)
 col_m1.metric(f"Expected Return Portofolio ({periode_hitung})", f"{port_return_skala:.2%}")
-col_m2.metric(f
+col_m2.metric(f"Risiko Portofolio ({periode_hitung})", f"{port_std_skala:.2%}")
+col3.metric("Beta Portofolio", f"{port_beta:.2f}")
+
+col_m4, col_m5, col_m6 = st.columns(3)
+col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
+col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
+col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
+
+# Tabel Ringkasan Bobot Portofolio
+df_port_summary = pd.DataFrame({
+    "Emiten": saham_terpilih,
+    "Bobot (%)": [w * 100 for w in weights],
+    "Expected Return": mean_return_stats.values,
+    "Kontribusi Return": (mean_return_stats.values * weights)
+})
+st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.2f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
+
+with st.expander("💡 Penjelasan & Cara Hitung - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
+    st.markdown(f"""
+    * **Expected Return Portofolio:** Hasil perkalian bobot investasi dengan Expected Return masing-masing emiten.
+    * **Sharpe Ratio ({sharpe_ratio:.4f}):** Efisiensi tingkat keuntungan terhadap total risiko portofolio.
+    * **Treynor Ratio ({treynor_ratio:.4f}):** Keuntungan portofolio per unit risiko sistematis (**Beta**).
+    * **Alpha Jensen's ({jensen_alpha:.4f}):** Indikator keunggulan portofolio di atas tingkat wajar pasar (CAPM).
+    """)
+
+# --- GRAFIK KINERJA ---
+st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
+df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
+
+plt.clf()
+fig, ax = plt.subplots(figsize=(10, 4))
+
+for idx, saham in enumerate(df_norm.columns):
+    warna_pilih = WARNA_PASTEL[idx % len(WARNA_PASTEL)]
+    ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.2, color=warna_pilih)
+
+ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
+ax.set_xlabel("Tanggal")
+ax.legend(loc="upper left")
+ax.grid(True, linestyle="--", alpha=0.5)
+st.pyplot(fig)
