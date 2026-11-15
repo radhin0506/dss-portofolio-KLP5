@@ -449,8 +449,9 @@ if df_return_stats.empty:
     df_return_stats = df_return
 
 mean_return_stats = df_return_stats.mean()
-cov_matrix_stats = df_return_stats.copy()
-# Kosongkan diagonal utama kovarians (saham dengan saham yang sama)
+
+# PERBAIKAN MATRIKS KOVARIAN (ANTAR EMITEN)
+cov_matrix_stats = df_return_stats.cov()
 for col in cov_matrix_stats.columns:
     cov_matrix_stats.loc[col, col] = np.nan
 
@@ -574,7 +575,7 @@ else:
             "* **Kesimpulan Sheet 3:** Nilai standar deviasi menunjukkan seberapa besar volatilitas atau risiko masing-masing aset."
         )
 
-    # --- SHEET 4: COVARIANCE (DIAGONAL DIKOSONGKAN) ---
+    # --- SHEET 4: COVARIANCE (FIXED) ---
     st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
     st.dataframe(cov_matrix_stats.style.format("{:.6f}", na_rep="-"), use_container_width=True)
 
@@ -587,7 +588,9 @@ else:
     # --- SHEET 5: KOEFISIEN KORELASI ---
     st.header("5️⃣ Sheet 5: Koefisien Korelasi")
     corr_matrix = df_return_stats.corr()
-    st.dataframe(corr_matrix.style.format("{:.6f}"), use_container_width=True)
+    for col in corr_matrix.columns:
+        corr_matrix.loc[col, col] = np.nan
+    st.dataframe(corr_matrix.style.format("{:.6f}", na_rep="-"), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 5 (Koefisien Korelasi)", expanded=True):
         st.markdown(
