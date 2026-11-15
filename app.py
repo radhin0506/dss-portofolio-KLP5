@@ -193,7 +193,6 @@ if sumber_data == "Upload File Sendiri (Excel/CSV)":
     
     st.sidebar.info(f"📊 Jumlah data historis terdeteksi: **{jumlah_baris_data} baris**.")
     
-    # Opsi fleksibel untuk menyesuaikan faktor tahunan berdasarkan jumlah data Anda
     pilihan_skala = st.sidebar.selectbox(
         "Pilih Penyesuaian Skala Waktu:",
         options=[
@@ -298,7 +297,7 @@ st.json({col: f"{val:.6f}" for col, val in mean_return_stats.items()})
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 2 (Return Realisasi & ER)", expanded=True):
     st.markdown(
         "* **Rumus Return:** R = (Harga_ini - Harga_lalu) / Harga_lalu\n"
-        "* **Rumus Expected Return (ER):** $ER = \\frac{\\sum R_t}{n}$\n"
+        "* **Rumus Expected Return (ER):** ER = Total Return / Jumlah Periode (n)\n"
         "* **Kesimpulan Sheet 2:** Emiten dengan ER positif menunjukkan tren keuntungan yang baik."
     )
 
@@ -387,11 +386,30 @@ st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Ret
 
 with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
     st.markdown(
-        f"* **Rumus Formal Expected Return Portofolio:** $E(R_p) = \\sum_{{i=1}}^{{n}} w_i \\times E(R_i)$\n"
+        f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
         f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
         f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
         f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
         f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
         f"**Kesimpulan Keseluruhan Portofolio:**\n"
         f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan tingkat risiko **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
-        f"* Nilai Sharpe & Treyn
+        f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
+        f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
+    )
+
+# --- GRAFIK KINERJA ---
+st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
+df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
+
+plt.clf()
+fig, ax = plt.subplots(figsize=(10, 4))
+
+for idx, saham in enumerate(df_norm.columns):
+    warna_pilih = WARNA_PASTEL[idx % len(WARNA_PASTEL)]
+    ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.2, color=warna_pilih)
+
+ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
+ax.set_xlabel("Tanggal")
+ax.legend(loc="upper left")
+ax.grid(True, linestyle="--", alpha=0.5)
+st.pyplot(fig)
