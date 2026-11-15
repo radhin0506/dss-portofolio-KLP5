@@ -611,34 +611,5 @@ else:
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Kinerja)", expanded=True):
         st.markdown(
-            f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
-            f"* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **{port_var_skala:.6f}** (Memperhitungkan bobot dan kovarians antar aset)\n"
-            f"* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **{port_std_skala:.4f} ({port_std_skala:.2%})**\n"
-            f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
-            f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
-            f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
-            f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
-            f"**Kesimpulan Keseluruhan Portofolio:**\n"
-            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan Variance Portofolio **{port_var_skala:.6f}** dan Risiko (Standar Deviasi) sebesar **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
-            f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
-            f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
-        )
-
-    # --- GRAFIK KINERJA ---
-    st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
-    df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
-
-    plt.clf()
-    fig, ax = plt.subplots(figsize=(10, 4))
-    fig.patch.set_facecolor("#F8C4B4")
-    ax.set_facecolor("#FFFDFB")
-
-    for idx, saham in enumerate(df_norm.columns):
-        warna_pilih = WARNA_GRAFIK_PASTEL[idx % len(WARNA_GRAFIK_PASTEL)]
-        ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.4, color=warna_pilih)
-
-    ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
-    ax.set_xlabel("Tanggal")
-    ax.legend(loc="upper left")
-    ax.grid(True, linestyle="--", alpha=0.5)
-    st.pyplot(fig)
+            "* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
+            f"* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **{port_var_skala:.6f}** (Memperhitungkan bobot dan kovarians
