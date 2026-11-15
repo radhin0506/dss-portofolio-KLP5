@@ -168,57 +168,66 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         uploaded_file = st.sidebar.file_uploader("Unggah file data harga Close (.xlsx / .csv):", type=["xlsx", "csv"])
         if uploaded_file is not None:
             try:
-                # 1. Baca seluruh isi file tanpa header kaku untuk mendeteksi struktur aslinya
+                # 1. Baca seluruh file mentah dengan aman sebagai teks (string)
                 if uploaded_file.name.endswith(".csv"):
-                    df_raw_file = pd.read_csv(uploaded_file, header=None)
+                    df_raw = pd.read_csv(uploaded_file, header=None, dtype=str, encoding='utf-8', on_bad_lines='skip')
                 else:
-                    df_raw_file = pd.read_excel(uploaded_file, header=None)
+                    df_raw = pd.read_excel(uploaded_file, header=None, dtype=str)
                 
-                # 2. Cari baris yang paling mungkin sebagai header (baris yang mengandung kata tanggal/date atau kode saham)
-                header_idx = 0
-                for idx, row in df_raw_file.iterrows():
-                    row_str = row.astype(str).str.lower().values
-                    if any("tanggal" in val or "date" in val or "time" in val or "periode" in val for val in row_str):
-                        header_idx = idx
+                # 2. Deteksi baris header secara aman dengan konversi string anti-float error
+                header_row_idx = 0
+                for idx, row in df_raw.iterrows():
+                    row_vals = [str(val).lower() for val in row.dropna().values]
+                    if any(any(k in val for k in ["tanggal", "date", "time", "periode", "kode", "emiten", "price", "close"]) for val in row_vals):
+                        header_row_idx = idx
                         break
                 
-                # Muat ulang dengan header yang benar
+                # Muat ulang dengan baris header yang terdeteksi
                 if uploaded_file.name.endswith(".csv"):
-                    df_clean = pd.read_csv(uploaded_file, skiprows=header_idx)
+                    df_clean = pd.read_csv(uploaded_file, skiprows=header_row_idx, dtype=str, encoding='utf-8', on_bad_lines='skip')
                 else:
-                    df_clean = pd.read_excel(uploaded_file, skiprows=header_idx)
+                    df_clean = pd.read_excel(uploaded_file, skiprows=header_row_idx, dtype=str)
 
-                # 3. Bersihkan nama kolom dari Unnamed atau spasi berlebih
+                # Bersihkan nama kolom
+                df_clean.columns = [str(c).strip() for c in df_clean.columns]
                 df_clean = df_clean.loc[:, ~df_clean.columns.str.contains('^Unnamed', case=False, na=False)]
-                
-                # 4. Ambil kolom pertama sebagai tanggal/indeks
-                tgl_col = df_clean.columns[0]
-                df_clean[tgl_col] = pd.to_datetime(df_clean[tgl_col], errors='coerce')
-                df_clean = df_clean.dropna(subset=[tgl_col])
-                df_clean = df_clean.set_index(tgl_col)
 
-                # 5. Konversi seluruh isi sel angka menjadi format numerik bersih (hapus 'Rp', titik ribuan, ubah koma desimal)
+                # 3. Deteksi Kolom Tanggal Universal secara Aman
+                kolom_tgl = None
                 for col in df_clean.columns:
-                    ser = df_clean[col]
-                    if ser.dtype == object or str(ser.dtype).startswith('str') or pd.api.types.is_string_dtype(ser):
-                        ser = (
-                            ser.astype(str)
-                            .str.replace('Rp', '', case=False)
-                            .str.replace('IDR', '', case=False)
-                            .str.replace('.', '', regex=False)     # Hapus titik ribuan
-                            .str.replace(',', '.', regex=False)    # Ubah koma jadi titik desimal
-                            .str.strip()
-                        )
+                    parsed_date = pd.to_datetime(df_clean[col], errors='coerce')
+                    if parsed_date.notna().sum() > max(1, len(df_clean) * 0.1):
+                        kolom_tgl = col
+                        break
+                
+                if kolom_tgl is not None:
+                    df_clean[kolom_tgl] = pd.to_datetime(df_clean[kolom_tgl], errors='coerce')
+                    df_clean = df_clean.dropna(subset=[kolom_tgl])
+                    df_clean = df_clean.set_index(kolom_tgl)
+                else:
+                    df_clean.index = pd.to_datetime(df_clean.iloc[:, 0], errors='coerce')
+                    df_clean = df_clean.iloc[:, 1:]
+
+                # 4. Pembersihan Data Angka Universal
+                for col in df_clean.columns:
+                    ser = df_clean[col].astype(str)
+                    ser = (
+                        ser.str.replace('Rp', '', case=False)
+                           .str.replace('IDR', '', case=False)
+                           .str.replace('$', '', regex=False)
+                           .str.replace('.', '', regex=False)     # Hapus titik ribuan
+                           .str.replace(',', '.', regex=False)    # Ubah koma jadi titik desimal
+                           .str.strip()
+                    )
                     df_clean[col] = pd.to_numeric(ser, errors='coerce')
 
-                # Filter baris/kolom kosong
                 df_harga_display = df_clean.dropna(how='all').dropna(axis=1, how='all')
                 if "No" in df_harga_display.columns:
                     df_harga_display = df_harga_display.drop(columns=["No"])
 
-                st.sidebar.success("✅ File berhasil dibersihkan otomatis!")
+                st.sidebar.success("✅ File berhasil dibersihkan dan dimuat dengan aman!")
             except Exception as e:
-                st.sidebar.error(f"Gagal memproses file otomatis: {e}")
+                st.sidebar.error(f"Gagal memproses file: {e}")
                 df_harga_display = None
         else:
             st.sidebar.info("👈 Silakan unggah file Excel/CSV Anda.")
