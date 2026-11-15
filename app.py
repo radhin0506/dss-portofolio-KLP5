@@ -1,14 +1,21 @@
-# --- KUSTOMISASI CSS WARNA PASTEL COKLAT (STRUKTUR ROOT STREAMLIT) ---
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import yfinance as yf
+
+# 1. ATURAN UTAMA: st.set_page_config() HARUS JADI YANG PERTAMA DI SINI
+st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
+
+# 2. BARU SETELAH ITU KODE CSS STYLING BOLEH DILETAKKAN
 st.markdown("""
 <style>
-    /* Mengubah variabel warna global bawaan Streamlit */
     :root {
         --background-color: #FDFBF7 !important;
         --secondary-background-color: #F4ECE1 !important;
         --text-color: #4A3B32 !important;
     }
 
-    /* Memaksa seluruh area halaman utama dan kontainer menjadi krem pastel coklat */
     .stApp, 
     [data-testid="stAppViewContainer"], 
     [data-testid="stHeader"], 
@@ -18,22 +25,26 @@ st.markdown("""
         color: #4A3B32 !important;
     }
     
-    /* Memaksa area sidebar menjadi coklat susu / latte pastel */
     [data-testid="stSidebar"], 
     [data-testid="stSidebarContent"],
     [data-testid="stSidebarUserContent"] {
         background-color: #F4ECE1 !important;
     }
     
-    /* Memperjelas warna teks judul dan label */
     h1, h2, h3, h4, h5, h6, p, span, label, div, .streamlit-expanderHeader {
         color: #4A3B32 !important;
     }
 
-    /* Warna kotak expander */
     .streamlit-expanderHeader {
         background-color: #EFE6D8 !important;
         border-radius: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- JUDUL UTAMA APLIKASI ---
+st.title("🕌 Sistem Pendukung Keputusan (DSS) Portofolio Saham Syariah (JII)")
+st.markdown(
+    "Aplikasi analisis risiko, *return*, optimasi bobot, dan rekomendasi portofolio syariah berdasarkan "
+    "konstituen **Jakarta Islamic Index (JII)** di Bursa Efek Indonesia (BEI) secara *real-time*."
+)
