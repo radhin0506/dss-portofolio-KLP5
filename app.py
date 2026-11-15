@@ -77,17 +77,17 @@ menu_pilihan = st.sidebar.radio(
     options=["🏠 Beranda (Home)", "📊 Analisis Lengkap (6 Sheet)"]
 )
 
-# --- KUSTOMISASI CSS KELIMA WARNA PASTEL ---
+# --- KUSTOMISASI CSS WARNA PASTEL (BG UTAMA = PEACH, TAG EMITEN = UNGU) ---
 if menu_pilihan == "🏠 Beranda (Home)":
     bg_utama = "#FFC5D3"      # Pastel Pink[cite: 7]
     bg_sidebar = "#D4EEF9"    # Pastel Biru[cite: 8]
-    bg_aksen = "#FFF0F5"      # Aksen Pink Sangat Muda
+    bg_aksen = "#FFF0F5"      
     border_aksen = "#F8BBD0"
 else:
-    bg_utama = "#D1C4E9"      # Pastel Ungu (Utama)[cite: 5]
-    bg_sidebar = "#BAED91"    # Pastel Hijau (Sidebar)[cite: 6]
-    bg_aksen = "#F8C4B4"      # Pastel Peach (Aksen / Expander)[cite: 4]
-    border_aksen = "#FFAB91"
+    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach[cite: 4]
+    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau[cite: 6]
+    bg_aksen = "#D1C4E9"      # Aksen Pendukung
+    border_aksen = "#B39DDB"
 
 st.markdown(f"""
 <style>
@@ -114,6 +114,13 @@ st.markdown(f"""
     
     h1, h2, h3, h4, h5, h6, p, span, label, div {{
         color: #2C2C2C !important;
+    }}
+
+    /* Mengubah warna tag pilihan emiten (multiselect pill) menjadi ungu pastel */
+    [data-baseweb="tag"] {{
+        background-color: #D1C4E9 !important;
+        color: #2C2C2C !important;
+        border-radius: 6px;
     }}
 
     .streamlit-expanderHeader {{
@@ -585,7 +592,7 @@ else:
 
     plt.clf()
     fig, ax = plt.subplots(figsize=(10, 4))
-    fig.patch.set_facecolor("#D1C4E9")
+    fig.patch.set_facecolor("#F8C4B4")
     ax.set_facecolor("#FFFDFB")
 
     for idx, saham in enumerate(df_norm.columns):
