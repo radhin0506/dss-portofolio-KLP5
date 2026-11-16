@@ -185,7 +185,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             st.warning("⚠️ Silakan pilih minimal **2 saham** di menu *sidebar* sebelah kiri untuk melanjutkan.")
             st.stop()
 
-        # Pemilihan Bobot untuk Fitur 3
         st.sidebar.subheader("⚖️ 2. Tentukan Bobot Saham (%)")
         jml_f3 = len(saham_input_f3)
         bobot_default_f3 = round(100.0 / jml_f3, 4)
@@ -209,7 +208,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         if abs(total_b_f3 - 100.0) > 0.01:
             st.sidebar.warning(f"⚠️ Total bobot saat ini: **{total_b_f3:.4f}%**. Disarankan pas 100.00%.")
 
-        # Input Parameter Kinerja Akhir
         st.sidebar.subheader("📥 3. Masukkan Parameter Kinerja")
         in_er = st.sidebar.text_input("Expected Return Portofolio (Desimal):", value="0.0254", key="f3_er")
         in_var = st.sidebar.text_input("Variance Portofolio:", value="0.0012", key="f3_var")
@@ -235,7 +233,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         except:
             val_er, val_var, val_sd, val_beta, val_rf, val_sharpe, val_treynor, val_alpha = 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
 
-        # Cari saham dengan bobot terbesar sebagai aset dominan
         idx_dom = np.argmax(list_bobot_f3)
         saham_dominan = saham_bersih_f3[idx_dom]
         bobot_dominan = list_bobot_f3[idx_dom]
@@ -297,7 +294,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         st.stop()
 
     # =====================================================================
-    # FITUR 2: UPLOAD FILE DATA MENTAH (EXCEL/CSV) - MULTI SAHAM & BOBOT
+    # FITUR 2: UPLOAD FILE DATA MENTAH (EXCEL/CSV)
     # =====================================================================
     elif mode_sumber_utama == "2️⃣ Upload File Data Mentah (Excel/CSV)":
         uploaded_file = st.sidebar.file_uploader("Unggah file data harga Close (.xlsx / .csv):", type=["xlsx", "csv"], key="uploader_fitur_2")
@@ -363,7 +360,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             st.stop()
 
     # =====================================================================
-    # FITUR 1: OTOMATIS (YAHOO FINANCE) - MULTI SAHAM & BOBOT
+    # FITUR 1: OTOMATIS (YAHOO FINANCE)
     # =====================================================================
     else:
         saham_terpilih = st.sidebar.multiselect(
@@ -766,4 +763,12 @@ else:
     else:
         status_alpha = f"Underperform ({jensen_alpha:.6f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar berdasarkan tingkat risikonya."
 
-    st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n
+    st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n{saran_tindakan}")
+
+    st.markdown(
+        f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
+        f"* **Alokasi Aset Utama:** Saham **{saham_dominan}** menjadi penopang utama dengan proporsi bobot sebesar **{bobot_dominan:.2f}%**.\n"
+        f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{port_return_periode:.2%}** / desimal: **{port_return_periode:.4f}**) {'lebih tinggi' if port_return_periode > risk_free_rate else 'lebih rendah'} dibandingkan bunga bebas risiko (**{risk_free_rate:.4f}**).\n"
+        f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
+        f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
+    )
