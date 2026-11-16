@@ -149,7 +149,7 @@ risk_free_rate = 0.0010
 market_return = 0.0020
 weights = np.array([1/3, 1/3, 1/3])
 saham_terpilih_list = ["BRIS", "CTRA", "TLKM"]
-mode_bobot = "Manual (Desimal spesifik)"
+mode_bobot = "Manual (Desimal spesifik per saham)"
 mode_sumber_utama = "1️⃣ Otomatis (Yahoo Finance)"
 
 # --- PENGATURAN HANYA MUNCUL DI HALAMAN ANALISIS ---
@@ -162,33 +162,67 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         options=[
             "1️⃣ Otomatis (Yahoo Finance)",
             "2️⃣ Upload File Data Mentah (Excel/CSV)",
-            "3️⃣ Input Parameter Kinerja (Saran DSS)"
+            "3️⃣ Input Saham, Bobot & Parameter Kinerja (Saran DSS)"
         ]
     )
 
     # =====================================================================
-    # FITUR 3: INPUT PARAMETER KINERJA -> SARAN KEPUTUSAN DSS
+    # FITUR 3: INPUT SAHAM, BOBOT & PARAMETER KINERJA -> SARAN KEPUTUSAN DSS
     # =====================================================================
-    if mode_sumber_utama == "3️⃣ Input Parameter Kinerja (Saran DSS)":
-        st.info("🎯 **Fitur 3 Aktif:** Masukkan angka parameter kinerja hasil perhitungan Anda pada menu di sebelah kiri. Web akan langsung memproses dan memberikan saran keputusan investasi secara otomatis.")
+    if mode_sumber_utama == "3️⃣ Input Saham, Bobot & Parameter Kinerja (Saran DSS)":
+        st.info("🎯 **Fitur 3 Aktif:** Tentukan jumlah & daftar saham beserta bobotnya terlebih dahulu di *sidebar*, lalu masukkan angka parameter kinerja untuk langsung mendapatkan saran keputusan investasi.")
         
-        st.sidebar.subheader("📥 Masukkan Parameter Kinerja")
-        in_er = st.sidebar.text_input("Expected Return Portofolio (Desimal):", value="0.0254")
-        in_var = st.sidebar.text_input("Variance Portofolio:", value="0.0012")
-        in_sd = st.sidebar.text_input("Standar Deviasi / Risiko (SD):", value="0.0346")
-        in_beta = st.sidebar.text_input("Beta Portofolio:", value="1.0250")
-        
-        in_rf = st.sidebar.text_input("Bunga Bebas Risiko (Rf):", value="0.0010")
-        in_rm = st.sidebar.text_input("Expected Return Pasar (Rm):", value="0.0020")
-        
-        in_sharpe = st.sidebar.text_input("Sharpe Ratio:", value="0.7050")
-        in_treynor = st.sidebar.text_input("Treynor Ratio:", value="0.0238")
-        in_alpha = st.sidebar.text_input("Jensen's Alpha:", value="0.0045")
-        
-        in_saham_dom = st.sidebar.text_input("Saham Dominan / Unggulan:", value="BRIS")
-        in_bobot_dom = st.sidebar.text_input("Bobot Saham Utama (%):", value="50.00")
+        st.sidebar.subheader("📌 1. Pilih Daftar Saham Portofolio")
+        saham_input_f3 = st.sidebar.multiselect(
+            "Pilih Saham (Min. 2):",
+            options=list(DAFTAR_SAHAM_JII.keys()),
+            default=["BRIS.JK", "CTRA.JK", "TLKM.JK"],
+            format_func=lambda x: DAFTAR_SAHAM_JII[x],
+            key="f3_multiselect_saham"
+        )
 
-        # Konversi input teks ke float dengan aman
+        if len(saham_input_f3) < 2:
+            st.warning("⚠️ Silakan pilih minimal **2 saham** di menu *sidebar* sebelah kiri untuk melanjutkan.")
+            st.stop()
+
+        # Pemilihan Bobot untuk Fitur 3
+        st.sidebar.subheader("⚖️ 2. Tentukan Bobot Saham (%)")
+        jml_f3 = len(saham_input_f3)
+        bobot_default_f3 = round(100.0 / jml_f3, 4)
+        
+        list_bobot_f3 = []
+        saham_bersih_f3 = [s.replace(".JK", "") for s in saham_input_f3]
+        
+        for i, saham in enumerate(saham_bersih_f3):
+            b_val = st.sidebar.number_input(
+                f"Bobot {saham} (%)", 
+                min_value=0.0, 
+                max_value=100.0, 
+                value=float(bobot_default_f3), 
+                step=0.01, 
+                format="%.4f",
+                key=f"f3_bobot_{saham}"
+            )
+            list_bobot_f3.append(b_val)
+        
+        total_b_f3 = sum(list_bobot_f3)
+        if abs(total_b_f3 - 100.0) > 0.01:
+            st.sidebar.warning(f"⚠️ Total bobot saat ini: **{total_b_f3:.4f}%**. Disarankan pas 100.00%.")
+
+        # Input Parameter Kinerja Akhir
+        st.sidebar.subheader("📥 3. Masukkan Parameter Kinerja")
+        in_er = st.sidebar.text_input("Expected Return Portofolio (Desimal):", value="0.0254", key="f3_er")
+        in_var = st.sidebar.text_input("Variance Portofolio:", value="0.0012", key="f3_var")
+        in_sd = st.sidebar.text_input("Standar Deviasi / Risiko (SD):", value="0.0346", key="f3_sd")
+        in_beta = st.sidebar.text_input("Beta Portofolio:", value="1.0250", key="f3_beta")
+        
+        in_rf = st.sidebar.text_input("Bunga Bebas Risiko (Rf):", value="0.0010", key="f3_rf")
+        in_rm = st.sidebar.text_input("Expected Return Pasar (Rm):", value="0.0020", key="f3_rm")
+        
+        in_sharpe = st.sidebar.text_input("Sharpe Ratio:", value="0.7050", key="f3_sharpe")
+        in_treynor = st.sidebar.text_input("Treynor Ratio:", value="0.0238", key="f3_treynor")
+        in_alpha = st.sidebar.text_input("Jensen's Alpha:", value="0.0045", key="f3_alpha")
+
         try:
             val_er = float(in_er.replace(",", "."))
             val_var = float(in_var.replace(",", "."))
@@ -198,11 +232,23 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             val_sharpe = float(in_sharpe.replace(",", "."))
             val_treynor = float(in_treynor.replace(",", "."))
             val_alpha = float(in_alpha.replace(",", "."))
-            val_bobot = float(in_bobot_dom.replace(",", "."))
         except:
-            val_er, val_var, val_sd, val_beta, val_rf, val_sharpe, val_treynor, val_alpha, val_bobot = 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0
+            val_er, val_var, val_sd, val_beta, val_rf, val_sharpe, val_treynor, val_alpha = 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
 
-        st.header("📊 Ringkasan Parameter Kinerja Portofolio")
+        # Cari saham dengan bobot terbesar sebagai aset dominan
+        idx_dom = np.argmax(list_bobot_f3)
+        saham_dominan = saham_bersih_f3[idx_dom]
+        bobot_dominan = list_bobot_f3[idx_dom]
+
+        st.header("📊 Ringkasan Komposisi & Parameter Kinerja Portofolio")
+        
+        df_komposisi_f3 = pd.DataFrame({
+            "Emiten": saham_bersih_f3,
+            "Bobot Alokasi (%)": list_bobot_f3
+        })
+        st.subheader("⚖️ Komposisi Bobot Aset Pilihan:")
+        st.dataframe(df_komposisi_f3.style.format({"Bobot Alokasi (%)": "{:.4f}%"}), use_container_width=True)
+
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Expected Return Portofolio", f"{val_er:.2%}", f"Desimal: {val_er:.4f}")
         c2.metric("Variance Portofolio", f"{val_var:.6f}")
@@ -219,7 +265,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
 
         if val_er > val_rf and val_sharpe > 0.1 and val_alpha > 0:
             status_keputusan = "SANGAT DIREKOMENDASIKAN (LAYAK & OPTIMAL)"
-            saran_tindakan = "Berdasarkan parameter kinerja yang dimasukkan, kombinasi portofolio ini terbukti mampu mengalahkan instrumen bebas risiko (Rf) sekaligus mengungguli rata-rata pasar (Alpha positif) dengan efisiensi risiko yang sangat baik."
+            saran_tindakan = "Berdasarkan komposisi bobot dan parameter kinerja yang dimasukkan, kombinasi portofolio ini terbukti mampu mengalahkan instrumen bebas risiko (Rf) sekaligus mengungguli rata-rata pasar (Alpha positif) dengan efisiensi risiko yang sangat baik."
         elif val_er > val_rf and val_sharpe > 0:
             status_keputusan = "DIREKOMENDASIKAN (LAYAK DENGAN CATATAN)"
             saran_tindakan = "Portofolio menghasilkan imbal hasil di atas bunga bebas risiko (Rf), namun efisiensi risikonya masih moderat. Pertimbangkan penyesuaian bobot aset untuk hasil lebih maksimal."
@@ -237,13 +283,13 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         if val_alpha > 0:
             status_alpha = f"Outperform (+{val_alpha:.6f}): Portofolio berhasil mencetak kelebihan keuntungan di atas ekspektasi model pasar CAPM."
         else:
-            status_alpha = f"Underperform ({val_alpha:.6f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar berdasarkan tingkat risikonya."
+            status_alpha = f"Underperform ({val_alpha:.6f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar."
 
         st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n{saran_tindakan}")
 
         st.markdown(
             f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
-            f"* **Alokasi Aset Utama:** Saham **{in_saham_dom}** menjadi penopang utama dengan proporsi bobot sebesar **{val_bobot:.2f}%**.\n"
+            f"* **Alokasi Aset Utama:** Saham **{saham_dominan}** menjadi penopang utama dengan proporsi bobot terbesar yaitu **{bobot_dominan:.2f}%**.\n"
             f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{val_er:.2%}** / desimal: **{val_er:.4f}**) {'lebih tinggi' if val_er > val_rf else 'lebih rendah'} dibandingkan bunga bebas risiko (**{val_rf:.4f}**).\n"
             f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
             f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
@@ -251,7 +297,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         st.stop()
 
     # =====================================================================
-    # FITUR 2: UPLOAD FILE DATA MENTAH (EXCEL/CSV)
+    # FITUR 2: UPLOAD FILE DATA MENTAH (EXCEL/CSV) - MULTI SAHAM & BOBOT
     # =====================================================================
     elif mode_sumber_utama == "2️⃣ Upload File Data Mentah (Excel/CSV)":
         uploaded_file = st.sidebar.file_uploader("Unggah file data harga Close (.xlsx / .csv):", type=["xlsx", "csv"], key="uploader_fitur_2")
@@ -308,15 +354,16 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                 if "No" in df_harga_display.columns:
                     df_harga_display = df_harga_display.drop(columns=["No"])
 
-                st.sidebar.success("✅ File berhasil dibersihkan dan dimuat dengan aman!")
+                st.sidebar.success("✅ File data mentah berhasil dimuat!")
             except Exception as e:
                 st.sidebar.error(f"Gagal memproses file: {e}")
                 df_harga_display = None
         else:
-            st.sidebar.info("👈 Silakan unggah file Excel/CSV Anda.")
+            st.sidebar.info("👈 Silakan unggah file Excel/CSV data harga Anda.")
+            st.stop()
 
     # =====================================================================
-    # FITUR 1: OTOMATIS (YAHOO FINANCE)
+    # FITUR 1: OTOMATIS (YAHOO FINANCE) - MULTI SAHAM & BOBOT
     # =====================================================================
     else:
         saham_terpilih = st.sidebar.multiselect(
@@ -391,7 +438,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             df_harga_display = df_harga.copy()
             df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
 
-    # Validasi jika data belum siap untuk Fitur 1 & 2
     if df_harga_display is None or df_harga_display.empty:
         st.warning("⚠️ Silakan pilih minimal **2 saham JII** atau unggah file data Anda terlebih dahulu di menu sebelah kiri.")
         st.stop()
@@ -422,12 +468,12 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     risk_free_rate = st.sidebar.number_input("Bunga Bebas Risiko (Rf per Periode)", value=0.0010, step=0.0001, format="%.4f")
     market_return = st.sidebar.number_input("Expected Return Pasar (Rm per Periode)", value=0.0020, step=0.0001, format="%.4f")
 
-    # --- SIDEBAR: BOBOT DESIMAL & OPTIMASI OTOMATIS ---
-    st.sidebar.subheader("⚖️ Atur Bobot Investasi (%)")
+    # --- SIDEBAR: PENENTUAN BOBOT (MANUAL, EQUAL, ATAU OTOMATIS) ---
+    st.sidebar.subheader("⚖️ Penentuan Bobot Portofolio (%)")
     mode_bobot = st.sidebar.radio(
         "Metode Penentuan Bobot:",
         options=[
-            "Manual (Desimal spesifik)",
+            "Manual (Desimal spesifik per saham)",
             "Bobot Berimbang (Equal Weight)",
             "Otomatis: Maksimum Sharpe Ratio",
             "Otomatis: Maksimum Treynor Ratio",
@@ -454,7 +500,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
 
     bobot_input = []
     for idx, saham in enumerate(saham_terpilih_list):
-        if mode_bobot == "Manual (Desimal spesifik)":
+        if mode_bobot == "Manual (Desimal spesifik per saham)":
             nilai = st.sidebar.number_input(
                 f"Bobot {saham} (%)", 
                 min_value=0.0, 
@@ -542,7 +588,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
     st.info(
         "💡 **Tentang Aplikasi:** Aplikasi web ini dirancang dengan **3 Fitur Utama**: "
         "(1) Otomatis Yahoo Finance, (2) Upload File Data Mentah Excel/CSV, dan "
-        "(3) Input Parameter Kinerja di mana pengguna memasukkan angka hasil akhir perhitungan untuk langsung mendapatkan saran keputusan investasi otomatis."
+        "(3) Input Saham, Bobot & Parameter Kinerja untuk langsung menghasilkan saran dan keputusan investasi otomatis."
     )
     
     st.markdown("---")
@@ -720,12 +766,4 @@ else:
     else:
         status_alpha = f"Underperform ({jensen_alpha:.6f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar berdasarkan tingkat risikonya."
 
-    st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n{saran_tindakan}")
-
-    st.markdown(
-        f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
-        f"* **Alokasi Aset Utama:** Saham **{saham_dominan}** menjadi penopang utama dengan proporsi bobot sebesar **{bobot_dominan:.2f}%**.\n"
-        f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{port_return_periode:.2%}** / desimal: **{port_return_periode:.4f}**) {'lebih tinggi' if port_return_periode > risk_free_rate else 'lebih rendah'} dibandingkan bunga bebas risiko (**{risk_free_rate:.4f}**).\n"
-        f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
-        f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
-    )
+    st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n
