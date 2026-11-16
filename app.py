@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import yfinance as yf
 
 # --- KONFIGURASI HALAMAN ---
@@ -401,15 +400,6 @@ else:
     }, index=dates)
     saham_terpilih_list = list(df_harga_display.columns)
 
-# Palet Warna Grafik 5 Warna Pastel
-WARNA_GRAFIK_PASTEL = [
-    "#FFC5D3",  # Pastel Pink
-    "#81D4FA",  # Pastel Biru
-    "#D1C4E9",  # Pastel Ungu
-    "#F8C4B4",  # Pastel Peach
-    "#BAED91"   # Pastel Green
-]
-
 # Perhitungan Analisis Akhir (Murni per Periode Tanpa Skala Waktu)
 jumlah_baris_data = len(df_harga_display)
 df_return = df_harga_display.pct_change().fillna(0)
@@ -646,22 +636,3 @@ else:
         f"* **Evaluasi Kinerja (CAPM):** {status_alpha}\n"
         f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
     )
-
-    # --- GRAFIK KINERJA ---
-    st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
-    df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
-
-    plt.clf()
-    fig, ax = plt.subplots(figsize=(10, 4))
-    fig.patch.set_facecolor("#F8C4B4")
-    ax.set_facecolor("#FFFDFB")
-
-    for idx, saham in enumerate(df_norm.columns):
-        warna_pilih = WARNA_GRAFIK_PASTEL[idx % len(WARNA_GRAFIK_PASTEL)]
-        ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.4, color=warna_pilih)
-
-    ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
-    ax.set_xlabel("Tanggal")
-    ax.legend(loc="upper left")
-    ax.grid(True, linestyle="--", alpha=0.5)
-    st.pyplot(fig)
