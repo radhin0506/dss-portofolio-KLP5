@@ -7,41 +7,11 @@ import yfinance as yf
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
 
-# --- KUSTOMISASI CSS WARNA PASTEL COKLAT (EARTH TONE) ---
-st.markdown("""
-<style>
-    :root {
-        --background-color: #FDFBF7 !important;
-        --secondary-background-color: #F4ECE1 !important;
-        --text-color: #4A3B32 !important;
-    }
-
-    .stApp, 
-    [data-testid="stAppViewContainer"], 
-    [data-testid="stHeader"], 
-    [data-testid="stToolbar"],
-    section.main {
-        background-color: #FDFBF7 !important;
-        color: #4A3B32 !important;
-    }
-    
-    [data-testid="stSidebar"], 
-    [data-testid="stSidebarContent"],
-    [data-testid="stSidebarUserContent"] {
-        background-color: #F4ECE1 !important;
-    }
-    
-    h1, h2, h3, h4, h5, h6, p, span, label, div {
-        color: #4A3B32 !important;
-    }
-
-    .streamlit-expanderHeader {
-        background-color: #EFE6D8 !important;
-        color: #4A3B32 !important;
-        border-radius: 8px;
-    }
-</style>
-""", unsafe_allow_html=True)
+# --- TAG HTML VERIFIKASI GOOGLE SEARCH CONSOLE ---
+st.markdown(
+    '<meta name="google-site-verification" content="MASUKKAN_KODE_UNIK_DARI_GOOGLE_DISINI" />', 
+    unsafe_allow_html=True
+)
 
 # --- 1. DAFTAR LENGKAP 30 SAHAM JII + CTRA (TOTAL 31 SAHAM) ---
 DAFTAR_SAHAM_JII = {
@@ -82,11 +52,7 @@ DAFTAR_SAHAM_JII = {
 def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="sharpe", n_simulasi=15000):
     np.random.seed(42)
     n_aset = len(mean_ret)
-    
-    # Hasilkan kombinasi bobot acak (Dirichlet distribution memastikan jumlah bobot = 1.0)
     w_acak = np.random.dirichlet(np.ones(n_aset), size=n_simulasi)
-    
-    # Hitung return & risiko tahunan/skala untuk seluruh simulasi sekaligus (vektorisasi cepat)
     port_ret = np.dot(w_acak, mean_ret) * faktor
     port_var = np.sum(np.dot(w_acak, cov_mat) * w_acak, axis=1)
     port_std = np.sqrt(port_var) * np.sqrt(faktor)
@@ -95,13 +61,12 @@ def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="shar
     if target == "sharpe":
         skor = np.where(port_std != 0, (port_ret - rf) / port_std, -np.inf)
     elif target == "treynor":
-        # Hindari pembagian beta negatif ekstrem yang bisa mendistorsi
         skor = np.where(port_beta_sim > 0.05, (port_ret - rf) / port_beta_sim, -np.inf)
-    else:  # jensen's alpha
+    else:
         skor = port_ret - (rf + port_beta_sim * (rm - rf))
         
     idx_terbaik = np.argmax(skor)
-    return w_acak[idx_terbaik] * 100.0  # Kembalikan dalam bentuk persentase (%)
+    return w_acak[idx_terbaik] * 100.0
 
 # --- 2. SIDEBAR: NAVIGASI MENU ---
 st.sidebar.header("🧭 Navigasi Menu")
@@ -109,6 +74,74 @@ menu_pilihan = st.sidebar.radio(
     "Pilih Halaman:",
     options=["🏠 Beranda (Home)", "📊 Analisis Lengkap (6 Sheet)"]
 )
+
+# --- KUSTOMISASI CSS KELIMA WARNA PASTEL ---
+if menu_pilihan == "🏠 Beranda (Home)":
+    bg_utama = "#FFC5D3"      # Pastel Pink
+    bg_sidebar = "#D4EEF9"    # Pastel Biru
+    bg_aksen = "#FFF0F5"      
+    border_aksen = "#F8BBD0"
+else:
+    bg_utama = "#F8C4B4"      # Background Utama: Pastel Peach
+    bg_sidebar = "#BAED91"    # Sidebar: Pastel Hijau
+    bg_aksen = "#D1C4E9"      # Aksen / Expander: Pastel Ungu
+    border_aksen = "#B39DDB"
+
+st.markdown(f"""
+<style>
+    :root {{
+        --background-color: {bg_utama} !important;
+        --secondary-background-color: {bg_sidebar} !important;
+        --text-color: #2C2C2C !important;
+    }}
+
+    .stApp, 
+    [data-testid="stAppViewContainer"], 
+    section.main {{
+        background-color: {bg_utama} !important;
+        color: #2C2C2C !important;
+    }}
+    
+    [data-testid="stSidebar"], 
+    [data-testid="stSidebarContent"],
+    [data-testid="stSidebarUserContent"] {{
+        background-color: {bg_sidebar} !important;
+    }}
+    
+    h1, h2, h3, h4, h5, h6, p, span, label, div {{
+        color: #2C2C2C !important;
+    }}
+
+    span[data-baseweb="tag"], 
+    div[data-baseweb="tag"],
+    [data-baseweb="tag"] {{
+        background-color: #D1C4E9 !important;
+        background: #D1C4E9 !important;
+        border-color: #B39DDB !important;
+        border-radius: 6px !important;
+    }}
+
+    span[data-baseweb="tag"] span, 
+    div[data-baseweb="tag"] span,
+    [data-baseweb="tag"] * {{
+        color: #2C2C2C !important;
+        font-weight: 500 !important;
+    }}
+
+    .streamlit-expanderHeader {{
+        background-color: {bg_aksen} !important;
+        color: #2C2C2C !important;
+        border: 1px solid {border_aksen} !important;
+        border-radius: 8px;
+    }}
+    
+    [data-testid="stAlert"] {{
+        background-color: {bg_aksen} !important;
+        border: 1px solid {border_aksen} !important;
+        border-radius: 10px;
+    }}
+</style>
+""", unsafe_allow_html=True)
 
 # Inisialisasi variabel default
 df_harga_display = None
@@ -136,21 +169,59 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         if uploaded_file is not None:
             try:
                 if uploaded_file.name.endswith(".csv"):
-                    df_uploaded = pd.read_csv(uploaded_file)
+                    df_raw = pd.read_csv(uploaded_file, header=None, dtype=str, encoding='utf-8', on_bad_lines='skip')
                 else:
-                    df_uploaded = pd.read_excel(uploaded_file)
+                    df_raw = pd.read_excel(uploaded_file, header=None, dtype=str)
                 
-                kolom_tanggal = [c for c in df_uploaded.columns if "tanggal" in c.lower() or "date" in c.lower()]
-                if kolom_tanggal:
-                    df_uploaded[kolom_tanggal[0]] = pd.to_datetime(df_uploaded[kolom_tanggal[0]])
-                    df_uploaded = df_uploaded.set_index(kolom_tanggal[0])
+                header_row_idx = 0
+                for idx, row in df_raw.iterrows():
+                    row_vals = [str(val).lower() for val in row.dropna().values]
+                    if any(any(k in val for k in ["tanggal", "date", "time", "periode", "kode", "emiten", "price", "close"]) for val in row_vals):
+                        header_row_idx = idx
+                        break
                 
-                df_harga_display = df_uploaded.select_dtypes(include=[np.number])
+                if uploaded_file.name.endswith(".csv"):
+                    df_clean = pd.read_csv(uploaded_file, skiprows=header_row_idx, dtype=str, encoding='utf-8', on_bad_lines='skip')
+                else:
+                    df_clean = pd.read_excel(uploaded_file, skiprows=header_row_idx, dtype=str)
+
+                df_clean.columns = [str(c).strip() for c in df_clean.columns]
+                df_clean = df_clean.loc[:, ~df_clean.columns.str.contains('^Unnamed', case=False, na=False)]
+
+                kolom_tgl = None
+                for col in df_clean.columns:
+                    parsed_date = pd.to_datetime(df_clean[col], errors='coerce')
+                    if parsed_date.notna().sum() > max(1, len(df_clean) * 0.1):
+                        kolom_tgl = col
+                        break
+                
+                if kolom_tgl is not None:
+                    df_clean[kolom_tgl] = pd.to_datetime(df_clean[kolom_tgl], errors='coerce')
+                    df_clean = df_clean.dropna(subset=[kolom_tgl])
+                    df_clean = df_clean.set_index(kolom_tgl)
+                else:
+                    df_clean.index = pd.to_datetime(df_clean.iloc[:, 0], errors='coerce')
+                    df_clean = df_clean.iloc[:, 1:]
+
+                for col in df_clean.columns:
+                    ser = df_clean[col].astype(str)
+                    ser = (
+                        ser.str.replace('Rp', '', case=False)
+                           .str.replace('IDR', '', case=False)
+                           .str.replace('$', '', regex=False)
+                           .str.replace('.', '', regex=False)
+                           .str.replace(',', '.', regex=False)
+                           .str.strip()
+                    )
+                    df_clean[col] = pd.to_numeric(ser, errors='coerce')
+
+                df_harga_display = df_clean.dropna(how='all').dropna(axis=1, how='all')
                 if "No" in df_harga_display.columns:
                     df_harga_display = df_harga_display.drop(columns=["No"])
-                st.sidebar.success("✅ File berhasil dimuat!")
+
+                st.sidebar.success("✅ File berhasil dibersihkan dan dimuat dengan aman!")
             except Exception as e:
-                st.sidebar.error(f"Gagal membaca file: {e}")
+                st.sidebar.error(f"Gagal memproses file: {e}")
                 df_harga_display = None
         else:
             st.sidebar.info("👈 Silakan unggah file Excel/CSV Anda.")
@@ -181,21 +252,22 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                 value=(pd.to_datetime("2026-01-01"), pd.Timestamp.today().date())
             )
             if len(rentang_tanggal) == 2:
-                tanggal_mulai, tanggal_selesai = pd.to_datetime(rentang_tanggal[0]), pd.to_datetime(rentang_tanggal[1])
+                tanggal_mulai = pd.to_datetime(rentang_tanggal[0])
+                tanggal_selesai = pd.to_datetime(rentang_tanggal[1])
             else:
-                tanggal_mulai, tanggal_selesai = pd.to_datetime("2026-01-01"), pd.Timestamp.today()
+                tanggal_mulai = pd.to_datetime("2026-01-01")
+                tanggal_selesai = pd.Timestamp.today()
             periode_yf = "max"
 
         periode_hitung = st.sidebar.selectbox(
             "3. Pilih Frekuensi Perhitungan:",
-            options=["Mingguan", "Harian", "Bulanan", "Semester (6 Bulan)", "Tahunan"]
+            options=["Mingguan", "Harian", "Bulanan", "Tahunan"]
         )
 
         aturan_periode = {
             "Harian": {"faktor": 252, "label_faktor": "252 hari bursa"},
             "Mingguan": {"faktor": 52, "label_faktor": "52 minggu"},
             "Bulanan": {"faktor": 12, "label_faktor": "12 bulan"},
-            "Semester (6 Bulan)": {"faktor": 2, "label_faktor": "2 semester"},
             "Tahunan": {"faktor": 1, "label_faktor": "1 tahun"}
         }
 
@@ -231,7 +303,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             if periode_hitung == "Harian":
                 df_harga = df_filtered.dropna()
             else:
-                rule_map = {"Mingguan": "W-FRI", "Bulanan": "ME", "Semester (6 Bulan)": "2QE", "Tahunan": "YE"}
+                rule_map = {"Mingguan": "W-FRI", "Bulanan": "ME", "Tahunan": "YE"}
                 df_harga = df_filtered.resample(rule_map.get(periode_hitung, "W-FRI")).last().dropna()
 
             df_harga_display = df_harga.copy()
@@ -245,29 +317,11 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     if sumber_data == "Upload File Sendiri (Excel/CSV)":
         periode_hitung = "Data Upload Mandiri"
         jumlah_baris_data = len(df_harga_display)
-        
-        pilihan_skala = st.sidebar.selectbox(
-            "Pilih Penyesuaian Skala Waktu:",
-            options=[
-                f"Gunakan Nilai Per Periode Murni (Faktor = 1)",
-                f"Sesuaikan dengan Jumlah Data ({jumlah_baris_data} baris setara 1 Tahun)",
-                f"Setahun Penuh (Faktor Standar 52 Minggu)",
-                f"Atur Faktor Manual"
-            ]
-        )
-        if "Faktor = 1" in pilihan_skala or "Nilai Per Periode" in pilihan_skala:
-            faktor_waktu = 1.0
-            label_faktor_teks = f"1 (Periode murni dari {jumlah_baris_data} data)"
-        elif "52 Minggu" in pilihan_skala:
-            faktor_waktu = 52.0
-            label_faktor_teks = "52 minggu (standar tahunan)"
-        else:
-            faktor_waktu = st.sidebar.number_input("Masukkan Angka Faktor Pengali Custom:", value=1.0, step=0.5)
-            label_faktor_teks = f"Custom ({faktor_waktu})"
+        faktor_waktu = 1.0
+        label_faktor_teks = f"1 (Nilai per periode murni dari {jumlah_baris_data} data)"
 
     saham_terpilih_list = list(df_harga_display.columns)
 
-    # Hitung statistik awal sebelum penentuan bobot otomatis
     df_return_temp = df_harga_display.pct_change().dropna()
     if df_return_temp.empty:
         df_return_temp = df_harga_display.pct_change().fillna(0)
@@ -332,7 +386,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                 key=f"manual_bobot_{saham}"
             )
         else:
-            # Tampilkan hasil bobot otomatis secara langsung pada kolom presisi
             nilai = st.sidebar.number_input(
                 f"Bobot {saham} (%)", 
                 min_value=0.0, 
@@ -354,7 +407,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     weights = np.array(bobot_input) / total_bobot
 
 else:
-    # Data Dummy untuk Beranda agar halaman Home tetap bisa dimuat tanpa error
     dates = pd.date_range(start="2026-01-01", periods=10, freq="W")
     df_harga_display = pd.DataFrame({
         "BRIS": [2000, 2050, 2100, 2080, 2150, 2200, 2180, 2250, 2300, 2350],
@@ -363,7 +415,14 @@ else:
     }, index=dates)
     saham_terpilih_list = list(df_harga_display.columns)
 
-WARNA_PASTEL = ["#B08968", "#D4A373", "#CCD5AE", "#99582A", "#6F4E37", "#BC6C25", "#E6CCB2"]
+# Palet Warna Grafik 5 Warna Pastel
+WARNA_GRAFIK_PASTEL = [
+    "#FFC5D3",  # Pastel Pink
+    "#81D4FA",  # Pastel Biru
+    "#D1C4E9",  # Pastel Ungu
+    "#F8C4B4",  # Pastel Peach
+    "#BAED91"   # Pastel Green
+]
 
 # Perhitungan Analisis Akhir
 jumlah_baris_data = len(df_harga_display)
@@ -373,12 +432,20 @@ if df_return_stats.empty:
     df_return_stats = df_return
 
 mean_return_stats = df_return_stats.mean()
+
+# Matriks Kovarians Antar Emiten (Diagonal dikosongkan)
 cov_matrix_stats = df_return_stats.cov()
+for col in cov_matrix_stats.columns:
+    cov_matrix_stats.loc[col, col] = np.nan
+
 std_stats = df_return_stats.std()
 
 port_return_periode = np.sum(mean_return_stats * weights)
-port_std_periode = np.sqrt(np.dot(weights.T, np.dot(cov_matrix_stats, weights)))
+port_var_periode = np.dot(weights.T, np.dot(df_return_stats.cov().values, weights))
+port_std_periode = np.sqrt(port_var_periode)
+
 port_return_skala = port_return_periode * faktor_waktu
+port_var_skala = port_var_periode * faktor_waktu
 port_std_skala = port_std_periode * np.sqrt(faktor_waktu)
 
 market_proxy_return = df_return_stats.mean(axis=1)
@@ -408,7 +475,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
     
     st.info(
         "💡 **Tentang Aplikasi:** Aplikasi web ini dirancang khusus untuk membantu pengambil keputusan "
-        "dalam merancang, mengukur risiko, menghitung return, serta mengevaluasi kinerja portofolio saham syariah "
+        "dalam merancang, merumuskan risiko, menghitung return, serta mengevaluasi kinerja portofolio saham syariah "
         "secara komprehensif berdasarkan kaidah portofolio Modern Markowitz."
     )
     
@@ -429,7 +496,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
         * **6️⃣ Sheet 6: Return Portofolio & Kinerja** — Evaluasi akhir menggunakan Sharpe, Treynor, & Alpha.
         """)
     
-    st.success("👉 Silakan klik menu **Analisis Lengkap (6 Sheet)** di sidebar sebelah kiri untuk mulai mengatur emiten, bobot, dan melihat rincian perhitungannya!")
+    st.success("👉 Silakan buka menu navigasi di pojok kiri atas untuk mulai mengatur emiten, bobot, dan melihat rincian perhitungannya!")
 
 else:
     # =====================================================================
@@ -460,8 +527,13 @@ else:
     df_sheet2.insert(0, "No", range(1, len(df_sheet2) + 1))
     st.dataframe(df_sheet2.style.format({"No": "{:.0f}", **{c: "{:.6f}" for c in saham_terpilih_list}}), use_container_width=True)
 
-    st.markdown("**Expected Return (ER) Masing-masing Emiten (Rata-rata Return):**")
-    st.json({col: f"{val:.6f}" for col, val in mean_return_stats.items()})
+    st.markdown("**Expected Return (ER) Masing-masing Emiten:**")
+    df_er_table = pd.DataFrame({
+        "Emiten": saham_terpilih_list,
+        "Expected Return (Desimal)": mean_return_stats.values,
+        "Expected Return (%)": [f"{val * 100:.4f}%" for val in mean_return_stats.values]
+    })
+    st.dataframe(df_er_table.style.format({"Expected Return (Desimal)": "{:.6f}"}), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 2 (Return Realisasi & ER)", expanded=True):
         st.markdown(
@@ -474,35 +546,37 @@ else:
     st.header("3️⃣ Sheet 3: Varians & Standar Deviasi")
     df_sheet3 = pd.DataFrame({
         "Emiten": saham_terpilih_list,
-        f"Mean Return ({periode_hitung})": mean_return_stats.values,
+        "Expected Return Saham": mean_return_stats.values,
         "Variance": df_return_stats.var().values,
-        "Standar Deviasi (Risiko)": std_stats.values,
-        f"Expected Return (Skala Waktu)": mean_return_stats.values * faktor_waktu,
-        f"Risiko (Skala Waktu)": std_stats.values * np.sqrt(faktor_waktu)
+        "Standar Deviasi (Risiko)": std_stats.values
     })
-    kolom_angka_sheet3 = [f"Mean Return ({periode_hitung})", "Variance", "Standar Deviasi (Risiko)", "Expected Return (Skala Waktu)", "Risiko (Skala Waktu)"]
+    kolom_angka_sheet3 = ["Expected Return Saham", "Variance", "Standar Deviasi (Risiko)"]
     st.dataframe(df_sheet3.style.format({col: "{:.6f}" for col in kolom_angka_sheet3}), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 3 (Varians & Standar Deviasi)", expanded=True):
         st.markdown(
-            f"* **Faktor Skala Waktu Aktif:** {label_faktor_teks} (Faktor = `{faktor_waktu}`)\n"
-            "* **Kesimpulan Sheet 3:** Skala waktu disesuaikan agar angka hasil analisis proporsional dengan jumlah data Anda."
+            "* **Rumus Expected Return Saham:** $E(R) = \\frac{\\sum R_t}{n}$\n"
+            "* **Rumus Varians ($\\sigma^2$):** $\\sigma^2 = \\frac{\\sum (R_t - E(R))^2}{n - 1}$ (Mengukur tingkat penyebaran fluktuasi harga emiten)\n"
+            "* **Rumus Standar Deviasi ($\\sigma$):** $\\sigma = \\sqrt{\\sigma^2}$ (Akar kuadrat dari varians sebagai ukuran risiko mutlak)\n"
+            "* **Kesimpulan Sheet 3:** Nilai standar deviasi menunjukkan seberapa besar volatilitas atau risiko masing-masing aset."
         )
 
     # --- SHEET 4: COVARIANCE ---
     st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
-    st.dataframe(cov_matrix_stats.style.format("{:.6f}"), use_container_width=True)
+    st.dataframe(cov_matrix_stats.style.format("{:.6f}", na_rep="-"), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 4 (Covariance)", expanded=True):
         st.markdown(
             "* **Rumus Kovarians:** Mengukur arah pergerakan bersama antar dua variabel saham.\n"
-            "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi portofolio."
+            "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi portofolio. Nilai pada saham yang sama (diagonal) dikosongkan agar tidak membingungkan."
         )
 
     # --- SHEET 5: KOEFISIEN KORELASI ---
     st.header("5️⃣ Sheet 5: Koefisien Korelasi")
     corr_matrix = df_return_stats.corr()
-    st.dataframe(corr_matrix.style.format("{:.6f}"), use_container_width=True)
+    for col in corr_matrix.columns:
+        corr_matrix.loc[col, col] = np.nan
+    st.dataframe(corr_matrix.style.format("{:.6f}", na_rep="-"), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 5 (Koefisien Korelasi)", expanded=True):
         st.markdown(
@@ -516,15 +590,16 @@ else:
     if "Otomatis" in mode_bobot:
         st.info(f"🤖 **Mode Optimasi Aktif:** `{mode_bobot}` — Proporsi bobot di bawah ini telah dihitung otomatis untuk memaksimalkan kinerja tersebut.")
 
-    col_m1, col_m2, col3 = st.columns(3)
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     col_m1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
-    col_m2.metric("Risiko Portofolio", f"{port_std_skala:.2%}")
-    col3.metric("Beta Portofolio", f"{port_beta:.4f}")
+    col_m2.metric("Variance Portofolio", f"{port_var_skala:.6f}")
+    col_m3.metric("Risiko Portofolio (SD)", f"{port_std_skala:.2%}")
+    col_m4.metric("Beta Portofolio", f"{port_beta:.4f}")
 
-    col_m4, col_m5, col_m6 = st.columns(3)
-    col_m4.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
-    col_m5.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
-    col_m6.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
+    col_m5, col_m6, col_m7 = st.columns(3)
+    col_m5.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
+    col_m6.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
+    col_m7.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
 
     df_port_summary = pd.DataFrame({
         "Emiten": saham_terpilih_list,
@@ -534,18 +609,64 @@ else:
     })
     st.dataframe(df_port_summary.style.format({"Bobot (%)": "{:.4f}%", "Expected Return": "{:.6f}", "Kontribusi Return": "{:.6f}"}), use_container_width=True)
 
-    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Metrik Kinerja)", expanded=True):
-        st.markdown(
-            f"* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
+    with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Kinerja)", expanded=True):
+        panduan_s6 = (
+            "* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
+            "* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **" + f"{port_var_skala:.6f}" + "** (Memperhitungkan bobot & kovarians antar aset)\n"
+            "* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **" + f"{port_std_skala:.4f} ({port_std_skala:.2%})" + "**\n"
             f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
-            f"* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **{sharpe_ratio:.4f}**\n"
-            f"* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **{treynor_ratio:.4f}**\n"
-            f"* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **{jensen_alpha:.4f}**\n\n"
-            f"**Kesimpulan Keseluruhan Portofolio:**\n"
-            f"* Portofolio Anda menghasilkan Expected Return sebesar **{port_return_skala:.2%}** dengan tingkat risiko **{port_std_skala:.2%}** berdasarkan {jumlah_baris_data} data historis.\n"
-            f"* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
-            f"* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
+            "* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **" + f"{sharpe_ratio:.4f}" + "**\n"
+            "* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **" + f"{treynor_ratio:.4f}" + "**\n"
+            "* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **" + f"{jensen_alpha:.4f}" + "**\n\n"
+            "**Kesimpulan Keseluruhan Portofolio:**\n"
+            "* Portofolio Anda menghasilkan Expected Return sebesar **" + f"{port_return_skala:.2%}" + "** dengan Variance Portofolio **" + f"{port_var_skala:.6f}" + "** dan Risiko (Standar Deviasi) sebesar **" + f"{port_std_skala:.2%}" + f"** berdasarkan {jumlah_baris_data} data historis.\n"
+            "* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
+            "* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
         )
+        st.markdown(panduan_s6)
+
+    # --- KESIMPULAN KEPUTUSAN DSS OTOMATIS ---
+    st.markdown("---")
+    st.subheader("🎯 Rekomendasi & Kesimpulan Keputusan Akhir (DSS)")
+
+    idx_dominan = np.argmax(weights)
+    saham_dominan = saham_terpilih_list[idx_dominan]
+    bobot_dominan = weights[idx_dominan] * 100
+
+    # Penentuan Status Kelayakan Investasi
+    if port_return_skala > risk_free_rate and sharpe_ratio > 0.5 and jensen_alpha > 0:
+        status_keputusan = "SANGAT DIREKOMENDASIKAN (LAYAK & OPTIMAL)"
+        saran_tindakan = "Kombinasi bobot portofolio ini mampu mengalahkan instrumen bebas risiko (Rf) sekaligus mengungguli rata-rata pasar (Alpha positif) dengan efisiensi risiko yang sangat baik."
+    elif port_return_skala > risk_free_rate and sharpe_ratio > 0:
+        status_keputusan = "DIREKOMENDASIKAN (LAYAK DENGAN CATATAN)"
+        saran_tindakan = "Portofolio menghasilkan imbal hasil di atas bunga bebas risiko (Rf), namun efisiensi risikonya masih moderat. Pertimbangkan fitur optimasi bobot otomatis untuk hasil lebih maksimal."
+    else:
+        status_keputusan = "TIDAK DIREKOMENDASIKAN (PERLU REBALANCING)"
+        saran_tindakan = "Imbal hasil portofolio belum mampu mengimbangi tingkat risiko maupun instrumen bebas risiko (Rf). Disarankan mengganti komposisi emiten atau mengubah proporsi bobot investasi."
+
+    # Penentuan Profil Risiko Beta
+    if port_beta > 1.05:
+        profil_beta = f"Agresif (Beta = {port_beta:.4f} > 1): Sensitivitas pergerakan portofolio lebih tinggi daripada pasar. Cocok untuk investor dengan profil risiko tinggi."
+    elif port_beta < 0.95:
+        profil_beta = f"Defensif (Beta = {port_beta:.4f} < 1): Portofolio lebih tahan terhadap gejolak pasar. Cocok untuk investor moderat hingga konservatif."
+    else:
+        profil_beta = f"Netral / Sejalan Pasar (Beta = {port_beta:.4f} ≈ 1): Pergerakan portofolio cenderung mengikuti arah pergerakan pasar secara umum."
+
+    # Penentuan Kinerja Alpha
+    if jensen_alpha > 0:
+        status_alpha = f"Outperform (+{jensen_alpha:.4f}): Portofolio berhasil mencetak kelebihan keuntungan di atas ekspektasi model CAPM."
+    else:
+        status_alpha = f"Underperform ({jensen_alpha:.4f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar berdasarkan tingkat risikonya."
+
+    st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n{saran_tindakan}")
+
+    st.markdown(
+        f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
+        f"* **Alokasi Aset Utama:** Saham **{saham_dominan}** menjadi penopang utama dengan proporsi bobot sebesar **{bobot_dominan:.2f}%**.\n"
+        f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{port_return_skala:.2%}**) {'lebih tinggi' if port_return_skala > risk_free_rate else 'lebih rendah'} dibandingkan bunga bebas risiko (**{risk_free_rate:.2%}**).\n"
+        f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
+        f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
+    )
 
     # --- GRAFIK KINERJA ---
     st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
@@ -553,10 +674,12 @@ else:
 
     plt.clf()
     fig, ax = plt.subplots(figsize=(10, 4))
+    fig.patch.set_facecolor("#F8C4B4")
+    ax.set_facecolor("#FFFDFB")
 
     for idx, saham in enumerate(df_norm.columns):
-        warna_pilih = WARNA_PASTEL[idx % len(WARNA_PASTEL)]
-        ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.2, color=warna_pilih)
+        warna_pilih = WARNA_GRAFIK_PASTEL[idx % len(WARNA_GRAFIK_PASTEL)]
+        ax.plot(df_norm.index, df_norm[saham], label=saham, linewidth=2.4, color=warna_pilih)
 
     ax.set_ylabel("Indeks Pertumbuhan (Mulai = 100)")
     ax.set_xlabel("Tanggal")
