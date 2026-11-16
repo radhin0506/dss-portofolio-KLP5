@@ -150,7 +150,6 @@ market_return = 0.002
 weights = np.array([1/3, 1/3, 1/3])
 saham_terpilih_list = ["BRIS", "CTRA", "TLKM"]
 mode_bobot = "Manual (Desimal spesifik)"
-sumber_data = "Otomatis (Yahoo Finance)"
 
 # --- PENGATURAN HANYA MUNCUL DI HALAMAN ANALISIS ---
 if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
@@ -159,55 +158,10 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
 
     sumber_data = st.sidebar.radio(
         "Pilih Sumber Data:",
-        options=[
-            "Otomatis (Yahoo Finance)",
-            "Upload File Sendiri (Excel/CSV)",
-            "Input Angka Manual (Tabel Interaktif)"
-        ]
+        options=["Otomatis (Yahoo Finance)", "Upload File Sendiri (Excel/CSV)"]
     )
 
-    if sumber_data == "Input Angka Manual (Tabel Interaktif)":
-        periode_hitung = "Input Manual"
-        st.sidebar.markdown("**Atur Kolom Emiten Manual:**")
-        jml_emiten_manual = st.sidebar.number_input("Jumlah Emiten (Min. 2):", min_value=2, max_value=15, value=3, step=1)
-        default_nama = ["SAHAM_A", "SAHAM_B", "SAHAM_C", "SAHAM_D", "SAHAM_E", "SAHAM_F", "SAHAM_G", "SAHAM_H", "SAHAM_I", "SAHAM_J", "SAHAM_K", "SAHAM_L", "SAHAM_M", "SAHAM_N", "SAHAM_O"]
-        nama_emiten_manual = []
-        for i in range(int(jml_emiten_manual)):
-            nm = st.sidebar.text_input(f"Nama/Kode Emiten {i+1}:", value=default_nama[i], key=f"nama_manual_{i}").strip()
-            if not nm:
-                nm = f"ASET_{i+1}"
-            nama_emiten_manual.append(nm)
-        
-        jml_baris_awal = st.sidebar.number_input("Jumlah Baris Periode Awal:", min_value=3, max_value=100, value=6, step=1)
-        
-        data_template = {"Periode/Tanggal": [f"Periode {r+1}" for r in range(int(jml_baris_awal))]}
-        for idx_em, nm in enumerate(nama_emiten_manual):
-            base_val = 2000.0 + (idx_em * 500.0)
-            data_template[nm] = [base_val + (r * 50.0) for r in range(int(jml_baris_awal))]
-        
-        df_template_manual = pd.DataFrame(data_template)
-        
-        st.info("📝 **Mode Input Manual Aktif:** Silakan ketik atau ubah angka harga pada tabel **Sheet 1** di bawah ini (Anda juga bisa menambah baris di bagian bawah tabel). Sheet 2 hingga Sheet 6 akan otomatis menyesuaikan!")
-        st.header("1️⃣ Sheet 1: Harga Close (Input Manual Interaktif)")
-        
-        df_edited = st.data_editor(
-            df_template_manual,
-            num_rows="dynamic",
-            use_container_width=True,
-            key="editor_harga_manual"
-        )
-        
-        df_clean_manual = df_edited.copy()
-        if "Periode/Tanggal" in df_clean_manual.columns:
-            df_clean_manual["Periode/Tanggal"] = df_clean_manual["Periode/Tanggal"].fillna("Periode Baru").astype(str)
-            df_clean_manual = df_clean_manual.set_index("Periode/Tanggal")
-        
-        for col in df_clean_manual.columns:
-            df_clean_manual[col] = pd.to_numeric(df_clean_manual[col], errors='coerce')
-        
-        df_harga_display = df_clean_manual.dropna(how='all')
-
-    elif sumber_data == "Upload File Sendiri (Excel/CSV)":
+    if sumber_data == "Upload File Sendiri (Excel/CSV)":
         uploaded_file = st.sidebar.file_uploader("Unggah file data harga Close (.xlsx / .csv):", type=["xlsx", "csv"])
         if uploaded_file is not None:
             try:
@@ -343,12 +297,13 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             df_harga_display.columns = [c.replace(".JK", "") for c in df_harga_display.columns]
 
     # Validasi jika data belum siap
-    if df_harga_display is None or df_harga_display.empty or len(df_harga_display) < 2:
-        st.warning("⚠️ Silakan pastikan minimal terdapat **2 emiten** dan **2 baris data angka** yang terisi agar perhitungan return dan risiko dapat dijalankan.")
+    if df_harga_display is None or df_harga_display.empty:
+        st.warning("⚠️ Silakan pilih minimal **2 saham JII** atau unggah file data Anda terlebih dahulu di menu sebelah kiri.")
         st.stop()
 
     if sumber_data == "Upload File Sendiri (Excel/CSV)":
         periode_hitung = "Data Upload Mandiri"
+        jumlah_baris_data = len(df_harga_display)
 
     saham_terpilih_list = list(df_harga_display.columns)
 
@@ -356,16 +311,16 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     if df_return_temp.empty:
         df_return_temp = df_harga_display.pct_change().fillna(0)
     mean_ret_temp = df_return_temp.mean().values
-    cov_mat_temp = df_return_temp.cov().fillna(0).values
+    cov_mat_temp = df_return_temp.cov().values
 
     market_proxy_temp = df_return_temp.mean(axis=1)
     market_var_temp = market_proxy_temp.var()
-    if pd.isna(market_var_temp) or market_var_temp == 0:
+    if market_var_temp == 0:
         market_var_temp = 0.0020
     beta_temp = []
     for col in df_return_temp.columns:
         cov_val = pd.concat([df_return_temp[col], market_proxy_temp], axis=1).cov().iloc[0, 1]
-        beta_temp.append(cov_val / market_var_temp if (not pd.isna(cov_val) and market_var_temp != 0) else 1.0)
+        beta_temp.append(cov_val / market_var_temp if market_var_temp != 0 else 1.0)
     beta_temp = np.array(beta_temp)
 
     # --- SIDEBAR: PARAMETER KINERJA (BENCHMARK & RF) ---
@@ -413,7 +368,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                 value=float(bobot_optimal_persen[idx]), 
                 step=0.01, 
                 format="%.4f",
-                key=f"manual_bobot_{saham}_{idx}"
+                key=f"manual_bobot_{saham}"
             )
         else:
             nilai = st.sidebar.number_input(
@@ -424,7 +379,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                 step=0.01, 
                 format="%.4f",
                 disabled=True,
-                key=f"auto_bobot_{saham}_{mode_bobot}_{idx}"
+                key=f"auto_bobot_{saham}_{mode_bobot}"
             )
         bobot_input.append(nilai)
 
@@ -459,23 +414,22 @@ cov_matrix_stats = df_return_stats.cov()
 for col in cov_matrix_stats.columns:
     cov_matrix_stats.loc[col, col] = np.nan
 
-std_stats = df_return_stats.std().fillna(0)
+std_stats = df_return_stats.std()
 
 # Nilai murni per periode
 port_return_periode = np.sum(mean_return_stats * weights)
-cov_clean_vals = df_return_stats.cov().fillna(0).values
-port_var_periode = np.dot(weights.T, np.dot(cov_clean_vals, weights))
-port_std_periode = np.sqrt(max(0.0, port_var_periode))
+port_var_periode = np.dot(weights.T, np.dot(df_return_stats.cov().values, weights))
+port_std_periode = np.sqrt(port_var_periode)
 
 market_proxy_return = df_return_stats.mean(axis=1)
 market_variance = market_proxy_return.var()
-if pd.isna(market_variance) or market_variance == 0:
+if market_variance == 0:
     market_variance = 0.0020
 
 beta_saham = []
 for col in df_return_stats.columns:
     cov_val = pd.concat([df_return_stats[col], market_proxy_return], axis=1).cov().iloc[0, 1]
-    beta_i = cov_val / market_variance if (not pd.isna(cov_val) and market_variance != 0) else 1.0
+    beta_i = cov_val / market_variance if market_variance != 0 else 1.0
     beta_saham.append(beta_i)
 port_beta = np.sum(weights * np.array(beta_saham))
 
@@ -504,8 +458,8 @@ if menu_pilihan == "🏠 Beranda (Home)":
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("""
-        * **1️⃣ Sheet 1: Harga Close** — Menampilkan atau menginput data harga historis emiten.
-        * **2️⃣ Sheet 2: Return Realisasi & ER** — Menghitung tingkat pengembalian dan rata-rata *Expected Return*.
+        * **1️⃣ Sheet 1: Harga Close** — Menampilkan data harga historis emiten dengan format Rupiah.
+        * **2️⃣ Sheet 2: Return Realisasi & ER** — Menghitung tingkat pengembalian harian/mingguan dan rata-rata *Expected Return*.
         * **3️⃣ Sheet 3: Varians & Standar Deviasi** — Mengukur tingkat risiko masing-masing aset.
         """)
     with c2:
@@ -515,24 +469,23 @@ if menu_pilihan == "🏠 Beranda (Home)":
         * **6️⃣ Sheet 6: Return Portofolio & Kinerja** — Evaluasi akhir menggunakan Sharpe, Treynor, & Alpha.
         """)
     
-    st.success("👉 Silakan buka menu navigasi di pojok kiri atas untuk mulai mengatur emiten, input data manual, bobot, dan melihat rincian perhitungannya!")
+    st.success("👉 Silakan buka menu navigasi di pojok kiri atas untuk mulai mengatur emiten, bobot, dan melihat rincian perhitungannya!")
 
 else:
     # =====================================================================
     # ANALISIS LENGKAP 6 SHEET
     # =====================================================================
     
-    # --- SHEET 1: HARGA CLOSE ---
-    if sumber_data != "Input Angka Manual (Tabel Interaktif)":
-        st.header(f"1️⃣ Sheet 1: Harga Close ({periode_hitung})")
-        df_sheet1 = df_harga_display.reset_index()
-        if 'Tanggal' in df_sheet1.columns:
-            df_sheet1 = df_sheet1.rename(columns={'Tanggal': 'Periode/Tanggal'})
-        else:
-            df_sheet1.rename(columns={df_sheet1.columns[0]: 'Periode/Tanggal'}, inplace=True)
+    # --- SHEET 1: HARGA CLOSE (DENGAN FORMAT RUPIAH) ---
+    st.header(f"1️⃣ Sheet 1: Harga Close ({periode_hitung})")
+    df_sheet1 = df_harga_display.reset_index()
+    if 'Tanggal' in df_sheet1.columns:
+        df_sheet1 = df_sheet1.rename(columns={'Tanggal': 'Periode/Tanggal'})
+    else:
+        df_sheet1.rename(columns={df_sheet1.columns[0]: 'Periode/Tanggal'}, inplace=True)
 
-        df_sheet1.insert(0, "No", range(1, len(df_sheet1) + 1))
-        st.dataframe(df_sheet1.style.format({"No": "{:.0f}", **{c: "Rp {:,.2f}" for c in saham_terpilih_list}}), use_container_width=True)
+    df_sheet1.insert(0, "No", range(1, len(df_sheet1) + 1))
+    st.dataframe(df_sheet1.style.format({"No": "{:.0f}", **{c: "Rp {:,.2f}" for c in saham_terpilih_list}}), use_container_width=True)
 
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 1 (Data Harga Close)", expanded=True):
         st.markdown(
@@ -567,7 +520,7 @@ else:
     df_sheet3 = pd.DataFrame({
         "Emiten": saham_terpilih_list,
         "Expected Return Saham": mean_return_stats.values,
-        "Variance": df_return_stats.var().fillna(0).values,
+        "Variance": df_return_stats.var().values,
         "Standar Deviasi (Risiko)": std_stats.values
     })
     kolom_angka_sheet3 = ["Expected Return Saham", "Variance", "Standar Deviasi (Risiko)"]
@@ -644,7 +597,7 @@ else:
         )
         st.markdown(panduan_s6)
 
-    # --- KESIMPULAN KEPUTUSAN DSS OTOMATIS ---
+    # --- KESIMPULAN KEPUTUSAN DSS OTOMATIS (SARAN KEPUTUSAN) ---
     st.markdown("---")
     st.subheader("🎯 Rekomendasi & Kesimpulan Keputusan Akhir (DSS)")
 
