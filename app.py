@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import io
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
@@ -67,51 +66,6 @@ def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, rf, rm, target="sharpe", n_s
         
     idx_terbaik = np.argmax(skor)
     return w_acak[idx_terbaik] * 100.0
-
-# --- FUNGSI PEMBUAT TEMPLATE EXCEL FITUR 3 ---
-def buat_template_excel_dss():
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Sheet 1: Contoh Data Historis
-        df_s1 = pd.DataFrame({
-            "Periode": ["Periode 1", "Periode 2", "Periode 3", "Periode 4"],
-            "BRIS": [2080, 2290, 2250, 2250],
-            "CTRA": [865, 940, 880, 830],
-            "TLKM": [3450, 3660, 3770, 3600]
-        })
-        df_s1.to_excel(writer, sheet_name="Sheet1_Historis", index=False)
-
-        # Sheet 6: Hasil Perhitungan (Murni dibaca otomatis oleh sistem)
-        df_s6 = pd.DataFrame({
-            "Parameter": [
-                "Expected Return Portofolio",
-                "Variance Portofolio",
-                "Standar Deviasi Portofolio",
-                "Beta Portofolio",
-                "Bunga Bebas Risiko (Rf)",
-                "Expected Return Pasar (Rm)",
-                "Sharpe Ratio",
-                "Treynor Ratio",
-                "Jensen Alpha",
-                "Saham Dominan",
-                "Bobot Saham Dominan (%)"
-            ],
-            "Nilai": [
-                0.0254,
-                0.0012,
-                0.0346,
-                1.0250,
-                0.0010,
-                0.0020,
-                0.7050,
-                0.0238,
-                0.0045,
-                "BRIS",
-                50.00
-            ]
-        })
-        df_s6.to_excel(writer, sheet_name="Hasil_Perhitungan", index=False)
-    return output.getvalue()
 
 # --- 2. SIDEBAR: NAVIGASI MENU ---
 st.sidebar.header("🧭 Navigasi Menu")
@@ -208,158 +162,93 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         options=[
             "1️⃣ Otomatis (Yahoo Finance)",
             "2️⃣ Upload File Data Mentah (Excel/CSV)",
-            "3️⃣ Upload File Hasil Hitung Lengkap (Saran DSS)"
+            "3️⃣ Input Parameter Kinerja (Saran DSS)"
         ]
     )
 
     # =====================================================================
-    # FITUR 3: UPLOAD FILE HASIL HITUNG LENGKAP -> Keputusan Murni Dari File
+    # FITUR 3: INPUT PARAMETER KINERJA -> SARAN KEPUTUSAN DSS
     # =====================================================================
-    if mode_sumber_utama == "3️⃣ Upload File Hasil Hitung Lengkap (Saran DSS)":
-        st.info("📂 **Fitur 3 Aktif:** Pengguna cukup mengirim/mengunggah file Excel hasil perhitungan lengkap (data historis, varians, standar deviasi, beta, hingga sharpe, treynor, alpha). Web akan membaca file tersebut secara penuh dan langsung menampilkan keputusan investasi.")
+    if mode_sumber_utama == "3️⃣ Input Parameter Kinerja (Saran DSS)":
+        st.info("🎯 **Fitur 3 Aktif:** Masukkan angka parameter kinerja hasil perhitungan Anda pada menu di sebelah kiri. Web akan langsung memproses dan memberikan saran keputusan investasi secara otomatis.")
         
-        st.sidebar.download_button(
-            label="📥 Unduh Template File Excel (.xlsx)",
-            data=buat_template_excel_dss(),
-            file_name="Template_Hasil_Perhitungan_Lengkap.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        st.sidebar.subheader("📥 Masukkan Parameter Kinerja")
+        in_er = st.sidebar.text_input("Expected Return Portofolio (Desimal):", value="0.0254")
+        in_var = st.sidebar.text_input("Variance Portofolio:", value="0.0012")
+        in_sd = st.sidebar.text_input("Standar Deviasi / Risiko (SD):", value="0.0346")
+        in_beta = st.sidebar.text_input("Beta Portofolio:", value="1.0250")
+        
+        in_rf = st.sidebar.text_input("Bunga Bebas Risiko (Rf):", value="0.0010")
+        in_rm = st.sidebar.text_input("Expected Return Pasar (Rm):", value="0.0020")
+        
+        in_sharpe = st.sidebar.text_input("Sharpe Ratio:", value="0.7050")
+        in_treynor = st.sidebar.text_input("Treynor Ratio:", value="0.0238")
+        in_alpha = st.sidebar.text_input("Jensen's Alpha:", value="0.0045")
+        
+        in_saham_dom = st.sidebar.text_input("Saham Dominan / Unggulan:", value="BRIS")
+        in_bobot_dom = st.sidebar.text_input("Bobot Saham Utama (%):", value="50.00")
 
-        file_hasil_dss = st.sidebar.file_uploader(
-            "Unggah File Excel/CSV Hasil Hitung:", 
-            type=["xlsx", "csv"],
-            key="uploader_fitur_3"
-        )
-
-        if file_hasil_dss is None:
-            st.warning("👈 Silakan unggah file Excel hasil perhitungan Anda melalui menu di sebelah kiri.")
-            st.stop()
-
+        # Konversi input teks ke float dengan aman
         try:
-            semua_sheet_dict = {}
-            if file_hasil_dss.name.endswith(".xlsx"):
-                excel_obj = pd.ExcelFile(file_hasil_dss)
-                for nama_sh in excel_obj.sheet_names:
-                    semua_sheet_dict[nama_sh] = pd.read_excel(excel_obj, sheet_name=nama_sh)
-            else:
-                semua_sheet_dict["Data_Upload"] = pd.read_csv(file_hasil_dss)
+            val_er = float(in_er.replace(",", "."))
+            val_var = float(in_var.replace(",", "."))
+            val_sd = float(in_sd.replace(",", "."))
+            val_beta = float(in_beta.replace(",", "."))
+            val_rf = float(in_rf.replace(",", "."))
+            val_sharpe = float(in_sharpe.replace(",", "."))
+            val_treynor = float(in_treynor.replace(",", "."))
+            val_alpha = float(in_alpha.replace(",", "."))
+            val_bobot = float(in_bobot_dom.replace(",", "."))
+        except:
+            val_er, val_var, val_sd, val_beta, val_rf, val_sharpe, val_treynor, val_alpha, val_bobot = 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
-            # Tampilkan data file yang diunggah
-            st.header("📑 Data File yang Diunggah")
-            for nama_sh, df_sh in semua_sheet_dict.items():
-                with st.expander(f"📄 Sheet: {nama_sh}", expanded=True):
-                    st.dataframe(df_sh, use_container_width=True)
+        st.header("📊 Ringkasan Parameter Kinerja Portofolio")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Expected Return Portofolio", f"{val_er:.2%}", f"Desimal: {val_er:.4f}")
+        c2.metric("Variance Portofolio", f"{val_var:.6f}")
+        c3.metric("Risiko Portofolio (SD)", f"{val_sd:.2%}", f"Desimal: {val_sd:.4f}")
+        c4.metric("Beta Portofolio", f"{val_beta:.4f}")
 
-            # Ekstraksi otomatis nilai metrik dari file
-            nilai_ekstrak = {
-                "er": 0.0, "var": 0.0, "sd": 0.0, "beta": 1.0,
-                "rf": 0.0010, "rm": 0.0020, "sharpe": 0.0, 
-                "treynor": 0.0, "alpha": 0.0, 
-                "saham_dom": "Portofolio Utama", "bobot_dom": 100.0
-            }
+        c5, c6, c7 = st.columns(3)
+        c5.metric("Sharpe Ratio", f"{val_sharpe:.4f}", help="Return di atas Risk-Free per unit total risiko")
+        c6.metric("Treynor Ratio", f"{val_treynor:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
+        c7.metric("Jensen's Alpha", f"{val_alpha:.6f}", help="Kelebihan return di atas model CAPM (Outperformance)")
 
-            for df_sh in semua_sheet_dict.values():
-                if df_sh.shape[1] >= 2:
-                    for idx, row in df_sh.iterrows():
-                        kunci_teks = str(row.iloc[0]).lower().strip()
-                        val_mentah = row.iloc[1]
-                        val_angka = None
-                        if pd.notna(val_mentah):
-                            if isinstance(val_mentah, (int, float, np.number)):
-                                val_angka = float(val_mentah)
-                            else:
-                                try:
-                                    str_clean = str(val_mentah).replace("Rp", "").replace("%", "").replace(",", ".").strip()
-                                    val_angka = float(str_clean)
-                                except:
-                                    val_angka = None
+        st.markdown("---")
+        st.subheader("🎯 Rekomendasi & Kesimpulan Keputusan Akhir (DSS)")
 
-                        if "expected return portofolio" in kunci_teks or kunci_teks == "er":
-                            if val_angka is not None: nilai_ekstrak["er"] = val_angka
-                        elif "variance" in kunci_teks or "varians" in kunci_teks:
-                            if val_angka is not None: nilai_ekstrak["var"] = val_angka
-                        elif "standar deviasi" in kunci_teks or "standard deviation" in kunci_teks or kunci_teks == "sd":
-                            if val_angka is not None: nilai_ekstrak["sd"] = val_angka
-                        elif "beta" in kunci_teks:
-                            if val_angka is not None: nilai_ekstrak["beta"] = val_angka
-                        elif "bebas risiko" in kunci_teks or kunci_teks == "rf":
-                            if val_angka is not None: nilai_ekstrak["rf"] = val_angka
-                        elif "pasar" in kunci_teks or kunci_teks == "rm":
-                            if val_angka is not None: nilai_ekstrak["rm"] = val_angka
-                        elif "sharpe" in kunci_teks:
-                            if val_angka is not None: nilai_ekstrak["sharpe"] = val_angka
-                        elif "treynor" in kunci_teks:
-                            if val_angka is not None: nilai_ekstrak["treynor"] = val_angka
-                        elif "alpha" in kunci_teks or "jensen" in kunci_teks:
-                            if val_angka is not None: nilai_ekstrak["alpha"] = val_angka
-                        elif "saham dominan" in kunci_teks or "emiten" in kunci_teks:
-                            if pd.notna(val_mentah): nilai_ekstrak["saham_dom"] = str(val_mentah).strip()
-                        elif "bobot" in kunci_teks:
-                            if val_angka is not None: nilai_ekstrak["bobot_dom"] = val_angka
+        if val_er > val_rf and val_sharpe > 0.1 and val_alpha > 0:
+            status_keputusan = "SANGAT DIREKOMENDASIKAN (LAYAK & OPTIMAL)"
+            saran_tindakan = "Berdasarkan parameter kinerja yang dimasukkan, kombinasi portofolio ini terbukti mampu mengalahkan instrumen bebas risiko (Rf) sekaligus mengungguli rata-rata pasar (Alpha positif) dengan efisiensi risiko yang sangat baik."
+        elif val_er > val_rf and val_sharpe > 0:
+            status_keputusan = "DIREKOMENDASIKAN (LAYAK DENGAN CATATAN)"
+            saran_tindakan = "Portofolio menghasilkan imbal hasil di atas bunga bebas risiko (Rf), namun efisiensi risikonya masih moderat. Pertimbangkan penyesuaian bobot aset untuk hasil lebih maksimal."
+        else:
+            status_keputusan = "TIDAK DIREKOMENDASIKAN (PERLU REBALANCING)"
+            saran_tindakan = "Imbal hasil portofolio belum mampu mengimbangi tingkat risiko maupun instrumen bebas risiko (Rf). Disarankan mengganti komposisi emiten atau mengubah proporsi bobot investasi."
 
-            in_er = nilai_ekstrak["er"]
-            in_var = nilai_ekstrak["var"]
-            in_sd = nilai_ekstrak["sd"]
-            in_beta = nilai_ekstrak["beta"]
-            in_rf = nilai_ekstrak["rf"]
-            in_sharpe = nilai_ekstrak["sharpe"]
-            in_treynor = nilai_ekstrak["treynor"]
-            in_alpha = nilai_ekstrak["alpha"]
-            in_saham_dom = nilai_ekstrak["saham_dom"]
-            in_bobot_dom = nilai_ekstrak["bobot_dom"]
+        if val_beta > 1.05:
+            profil_beta = f"Agresif (Beta = {val_beta:.4f} > 1): Sensitivitas pergerakan portofolio lebih tinggi daripada pasar."
+        elif val_beta < 0.95:
+            profil_beta = f"Defensif (Beta = {val_beta:.4f} < 1): Portofolio lebih tahan terhadap gejolak pasar."
+        else:
+            profil_beta = f"Netral / Sejalan Pasar (Beta = {val_beta:.4f} ≈ 1): Pergerakan portofolio sejalan dengan kondisi pasar."
 
-            st.markdown("---")
-            st.header("📋 Ringkasan Metrik Terbaca dari File Excel")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Expected Return Portofolio", f"{in_er:.2%}", f"Desimal: {in_er:.4f}")
-            c2.metric("Variance Portofolio", f"{in_var:.6f}")
-            c3.metric("Risiko Portofolio (SD)", f"{in_sd:.2%}", f"Desimal: {in_sd:.4f}")
-            c4.metric("Beta Portofolio", f"{in_beta:.4f}")
+        if val_alpha > 0:
+            status_alpha = f"Outperform (+{val_alpha:.6f}): Portofolio berhasil mencetak kelebihan keuntungan di atas ekspektasi model pasar CAPM."
+        else:
+            status_alpha = f"Underperform ({val_alpha:.6f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar berdasarkan tingkat risikonya."
 
-            c5, c6, c7 = st.columns(3)
-            c5.metric("Sharpe Ratio", f"{in_sharpe:.4f}")
-            c6.metric("Treynor Ratio", f"{in_treynor:.4f}")
-            c7.metric("Jensen's Alpha", f"{in_alpha:.6f}")
+        st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n{saran_tindakan}")
 
-            st.markdown("---")
-            st.subheader("🎯 Rekomendasi & Kesimpulan Keputusan Akhir (DSS)")
-
-            if in_er > in_rf and in_sharpe > 0.1 and in_alpha > 0:
-                status_keputusan = "SANGAT DIREKOMENDASIKAN (LAYAK & OPTIMAL)"
-                saran_tindakan = "Berdasarkan hasil pembacaan file yang diunggah, kombinasi portofolio ini terbukti mampu mengalahkan instrumen bebas risiko (Rf) sekaligus mengungguli rata-rata pasar (Alpha positif) dengan efisiensi risiko yang sangat baik."
-            elif in_er > in_rf and in_sharpe > 0:
-                status_keputusan = "DIREKOMENDASIKAN (LAYAK DENGAN CATATAN)"
-                saran_tindakan = "Portofolio menghasilkan imbal hasil di atas bunga bebas risiko (Rf), namun efisiensi risikonya masih moderat."
-            else:
-                status_keputusan = "TIDAK DIREKOMENDASIKAN (PERLU REBALANCING)"
-                saran_tindakan = "Imbal hasil portofolio pada file Anda belum mampu mengimbangi tingkat risiko maupun instrumen bebas risiko (Rf)."
-
-            if in_beta > 1.05:
-                profil_beta = f"Agresif (Beta = {in_beta:.4f} > 1): Sensitivitas pergerakan portofolio lebih tinggi daripada pasar."
-            elif in_beta < 0.95:
-                profil_beta = f"Defensif (Beta = {in_beta:.4f} < 1): Portofolio lebih tahan terhadap gejolak pasar."
-            else:
-                profil_beta = f"Netral / Sejalan Pasar (Beta = {in_beta:.4f} ≈ 1): Pergerakan portofolio sejalan dengan kondisi pasar."
-
-            if in_alpha > 0:
-                status_alpha = f"Outperform (+{in_alpha:.6f}): Portofolio berhasil mencetak kelebihan keuntungan di atas ekspektasi model pasar CAPM."
-            else:
-                status_alpha = f"Underperform ({in_alpha:.6f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar."
-
-            st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n{saran_tindakan}")
-
-            st.markdown(
-                f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
-                f"* **Alokasi Aset Utama:** Saham **{in_saham_dom}** menjadi penopang utama dengan proporsi bobot sebesar **{in_bobot_dom:.2f}%**.\n"
-                f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{in_er:.2%}** / desimal: **{in_er:.4f}**) {'lebih tinggi' if in_er > in_rf else 'lebih rendah'} dibandingkan bunga bebas risiko (**{in_rf:.4f}**).\n"
-                f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
-                f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
-            )
-            st.stop()
-
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat membaca file: {e}")
-            st.stop()
+        st.markdown(
+            f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
+            f"* **Alokasi Aset Utama:** Saham **{in_saham_dom}** menjadi penopang utama dengan proporsi bobot sebesar **{val_bobot:.2f}%**.\n"
+            f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{val_er:.2%}** / desimal: **{val_er:.4f}**) {'lebih tinggi' if val_er > val_rf else 'lebih rendah'} dibandingkan bunga bebas risiko (**{val_rf:.4f}**).\n"
+            f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
+            f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
+        )
+        st.stop()
 
     # =====================================================================
     # FITUR 2: UPLOAD FILE DATA MENTAH (EXCEL/CSV)
@@ -653,8 +542,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
     st.info(
         "💡 **Tentang Aplikasi:** Aplikasi web ini dirancang dengan **3 Fitur Utama**: "
         "(1) Otomatis Yahoo Finance, (2) Upload File Data Mentah Excel/CSV, dan "
-        "(3) Upload File Hasil Hitung Lengkap (mencakup data historis, varians, standar deviasi, sharpe, treynor, dan alpha) "
-        "di mana sistem murni membaca angka dari file dan langsung memberikan keputusan investasi otomatis."
+        "(3) Input Parameter Kinerja di mana pengguna memasukkan angka hasil akhir perhitungan untuk langsung mendapatkan saran keputusan investasi otomatis."
     )
     
     st.markdown("---")
