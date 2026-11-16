@@ -180,11 +180,10 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         
         jml_baris_awal = st.sidebar.number_input("Jumlah Baris Periode Awal:", min_value=3, max_value=100, value=6, step=1)
         
-        # Bangun data template awal untuk diedit pengguna di Sheet 1
         data_template = {"Periode/Tanggal": [f"Periode {r+1}" for r in range(int(jml_baris_awal))]}
         for idx_em, nm in enumerate(nama_emiten_manual):
-            base_val = 1000.0 + (idx_em * 500.0)
-            data_template[nm] = [base_val + (r * 25.0) for r in range(int(jml_baris_awal))]
+            base_val = 2000.0 + (idx_em * 500.0)
+            data_template[nm] = [base_val + (r * 50.0) for r in range(int(jml_baris_awal))]
         
         df_template_manual = pd.DataFrame(data_template)
         
@@ -198,7 +197,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             key="editor_harga_manual"
         )
         
-        # Bersihkan hasil input pengguna agar siap dihitung ke Sheet 2 - 6
         df_clean_manual = df_edited.copy()
         if "Periode/Tanggal" in df_clean_manual.columns:
             df_clean_manual["Periode/Tanggal"] = df_clean_manual["Periode/Tanggal"].fillna("Periode Baru").astype(str)
@@ -524,7 +522,7 @@ else:
     # ANALISIS LENGKAP 6 SHEET
     # =====================================================================
     
-    # --- SHEET 1: HARGA CLOSE (HANYA DITAMPILKAN JIKA BUKAN MODE INPUT MANUAL KARENA SUDAH ADA EDITOR DI ATAS) ---
+    # --- SHEET 1: HARGA CLOSE ---
     if sumber_data != "Input Angka Manual (Tabel Interaktif)":
         st.header(f"1️⃣ Sheet 1: Harga Close ({periode_hitung})")
         df_sheet1 = df_harga_display.reset_index()
@@ -613,9 +611,9 @@ else:
         st.info(f"🤖 **Mode Optimasi Aktif:** `{mode_bobot}` — Proporsi bobot di bawah ini telah dihitung otomatis untuk memaksimalkan kinerja tersebut.")
 
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    col_m1.metric("Expected Return Portofolio", f"{port_return_periode:.4%}")
+    col_m1.metric("Expected Return Portofolio", f"{port_return_periode:.4f} ({port_return_periode:.2%})")
     col_m2.metric("Variance Portofolio", f"{port_var_periode:.6f}")
-    col_m3.metric("Risiko Portofolio (SD)", f"{port_std_periode:.4%}")
+    col_m3.metric("Risiko Portofolio (SD)", f"{port_std_periode:.4f} ({port_std_periode:.2%})")
     col_m4.metric("Beta Portofolio", f"{port_beta:.4f}")
 
     col_m5, col_m6, col_m7 = st.columns(3)
@@ -635,12 +633,12 @@ else:
         panduan_s6 = (
             "* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
             "* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **" + f"{port_var_periode:.6f}" + "** (Murni per periode, tanpa faktor waktu)\n"
-            "* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **" + f"{port_std_periode:.4f} ({port_std_periode:.4%})" + "**\n"
+            "* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **" + f"{port_std_periode:.4f} ({port_std_periode:.2%})" + "**\n"
             "* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **" + f"{sharpe_ratio:.4f}" + "**\n"
             "* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **" + f"{treynor_ratio:.4f}" + "**\n"
             "* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **" + f"{jensen_alpha:.6f}" + "**\n\n"
             "**Kesimpulan Keseluruhan Portofolio:**\n"
-            "* Portofolio Anda menghasilkan Expected Return sebesar **" + f"{port_return_periode:.4%}" + "** dengan Variance Portofolio **" + f"{port_var_periode:.6f}" + "** dan Risiko (Standar Deviasi) sebesar **" + f"{port_std_periode:.4%}" + f"** per periode berdasarkan {jumlah_baris_data} data historis.\n"
+            "* Portofolio Anda menghasilkan Expected Return sebesar **" + f"{port_return_periode:.2%}" + "** (desimal: **" + f"{port_return_periode:.4f}" + "**) dengan Variance Portofolio **" + f"{port_var_periode:.6f}" + "** dan Risiko (Standar Deviasi) sebesar **" + f"{port_std_periode:.2%}" + f"** per periode berdasarkan {jumlah_baris_data} data historis.\n"
             "* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko murni.\n"
             "* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
         )
@@ -681,7 +679,7 @@ else:
     st.markdown(
         f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
         f"* **Alokasi Aset Utama:** Saham **{saham_dominan}** mendominasi portofolio sebesar **{bobot_dominan:.2f}%**.\n"
-        f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return (**{port_return_periode:.4%}**) {'lebih tinggi' if port_return_periode > risk_free_rate else 'lebih rendah'} dari $R_f$ (**{risk_free_rate:.4%}**).\n"
+        f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return (**{port_return_periode:.2%}** / desimal: **{port_return_periode:.4f}**) {'lebih tinggi' if port_return_periode > risk_free_rate else 'lebih rendah'} dari $R_f$ (**{risk_free_rate:.4f}**).\n"
         f"* **Evaluasi Kinerja (CAPM):** {status_alpha}\n"
         f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
     )
