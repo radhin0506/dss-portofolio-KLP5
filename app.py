@@ -49,13 +49,13 @@ DAFTAR_SAHAM_JII = {
 }
 
 # --- FUNGSI OPTIMASI BOBOT OTOMATIS (MONTE CARLO) ---
-def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, faktor, rf, rm, target="sharpe", n_simulasi=15000):
+def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, rf, rm, target="sharpe", n_simulasi=15000):
     np.random.seed(42)
     n_aset = len(mean_ret)
     w_acak = np.random.dirichlet(np.ones(n_aset), size=n_simulasi)
-    port_ret = np.dot(w_acak, mean_ret) * faktor
+    port_ret = np.dot(w_acak, mean_ret)
     port_var = np.sum(np.dot(w_acak, cov_mat) * w_acak, axis=1)
-    port_std = np.sqrt(port_var) * np.sqrt(faktor)
+    port_std = np.sqrt(port_var)
     port_beta_sim = np.dot(w_acak, beta_arr)
     
     if target == "sharpe":
@@ -145,11 +145,9 @@ st.markdown(f"""
 
 # Inisialisasi variabel default
 df_harga_display = None
-faktor_waktu = 52
-label_faktor_teks = "52 minggu"
 periode_hitung = "Mingguan"
-risk_free_rate = 0.06
-market_return = 0.10
+risk_free_rate = 0.001
+market_return = 0.002
 weights = np.array([1/3, 1/3, 1/3])
 saham_terpilih_list = ["BRIS", "CTRA", "TLKM"]
 mode_bobot = "Manual (Desimal spesifik)"
@@ -264,16 +262,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             options=["Mingguan", "Harian", "Bulanan", "Tahunan"]
         )
 
-        aturan_periode = {
-            "Harian": {"faktor": 252, "label_faktor": "252 hari bursa"},
-            "Mingguan": {"faktor": 52, "label_faktor": "52 minggu"},
-            "Bulanan": {"faktor": 12, "label_faktor": "12 bulan"},
-            "Tahunan": {"faktor": 1, "label_faktor": "1 tahun"}
-        }
-
-        faktor_waktu = aturan_periode[periode_hitung]["faktor"]
-        label_faktor_teks = aturan_periode[periode_hitung]["label_faktor"]
-
         if len(saham_terpilih) >= 2:
             @st.cache_data(ttl=3600)
             def ambil_data_saham(tickers, period):
@@ -317,8 +305,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     if sumber_data == "Upload File Sendiri (Excel/CSV)":
         periode_hitung = "Data Upload Mandiri"
         jumlah_baris_data = len(df_harga_display)
-        faktor_waktu = 1.0
-        label_faktor_teks = f"1 (Nilai per periode murni dari {jumlah_baris_data} data)"
 
     saham_terpilih_list = list(df_harga_display.columns)
 
@@ -340,8 +326,8 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
 
     # --- SIDEBAR: PARAMETER KINERJA (BENCHMARK & RF) ---
     st.sidebar.subheader("📈 Parameter Kinerja (Benchmark & Rf)")
-    risk_free_rate = st.sidebar.number_input("Bunga Bebas Risiko (Rf - Tahunan)", value=0.06, step=0.001, format="%.4f")
-    market_return = st.sidebar.number_input("Expected Return Pasar (Rm - Tahunan)", value=0.10, step=0.001, format="%.4f")
+    risk_free_rate = st.sidebar.number_input("Bunga Bebas Risiko (Rf per Periode)", value=0.001, step=0.0001, format="%.4f")
+    market_return = st.sidebar.number_input("Expected Return Pasar (Rm per Periode)", value=0.002, step=0.0001, format="%.4f")
 
     # --- SIDEBAR: BOBOT DESIMAL & OPTIMASI OTOMATIS ---
     st.sidebar.subheader("⚖️ Atur Bobot Investasi (%)")
@@ -360,13 +346,13 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     default_bobot_satuan = round(100.0 / jumlah_saham, 4)
 
     if mode_bobot == "Otomatis: Maksimum Sharpe Ratio":
-        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="sharpe")
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, risk_free_rate, market_return, target="sharpe")
         st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Sharpe Ratio tertinggi**!")
     elif mode_bobot == "Otomatis: Maksimum Treynor Ratio":
-        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="treynor")
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, risk_free_rate, market_return, target="treynor")
         st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Treynor Ratio tertinggi**!")
     elif mode_bobot == "Otomatis: Maksimum Jensen's Alpha":
-        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, faktor_waktu, risk_free_rate, market_return, target="alpha")
+        bobot_optimal_persen = cari_bobot_optimal(mean_ret_temp, cov_mat_temp, beta_temp, risk_free_rate, market_return, target="alpha")
         st.sidebar.success("✨ Bobot dioptimasi otomatis untuk **Jensen's Alpha tertinggi**!")
     elif mode_bobot == "Bobot Berimbang (Equal Weight)":
         bobot_optimal_persen = [default_bobot_satuan] * jumlah_saham
@@ -424,7 +410,7 @@ WARNA_GRAFIK_PASTEL = [
     "#BAED91"   # Pastel Green
 ]
 
-# Perhitungan Analisis Akhir
+# Perhitungan Analisis Akhir (Murni per Periode Tanpa Skala Waktu)
 jumlah_baris_data = len(df_harga_display)
 df_return = df_harga_display.pct_change().fillna(0)
 df_return_stats = df_harga_display.pct_change().dropna()
@@ -440,13 +426,10 @@ for col in cov_matrix_stats.columns:
 
 std_stats = df_return_stats.std()
 
+# Nilai murni per periode
 port_return_periode = np.sum(mean_return_stats * weights)
 port_var_periode = np.dot(weights.T, np.dot(df_return_stats.cov().values, weights))
 port_std_periode = np.sqrt(port_var_periode)
-
-port_return_skala = port_return_periode * faktor_waktu
-port_var_skala = port_var_periode * faktor_waktu
-port_std_skala = port_std_periode * np.sqrt(faktor_waktu)
 
 market_proxy_return = df_return_stats.mean(axis=1)
 market_variance = market_proxy_return.var()
@@ -460,9 +443,9 @@ for col in df_return_stats.columns:
     beta_saham.append(beta_i)
 port_beta = np.sum(weights * np.array(beta_saham))
 
-sharpe_ratio = (port_return_skala - risk_free_rate) / port_std_skala if port_std_skala != 0 else 0
-treynor_ratio = (port_return_skala - risk_free_rate) / port_beta if port_beta != 0 else 0
-jensen_alpha = port_return_skala - (risk_free_rate + port_beta * (market_return - risk_free_rate))
+sharpe_ratio = (port_return_periode - risk_free_rate) / port_std_periode if port_std_periode != 0 else 0
+treynor_ratio = (port_return_periode - risk_free_rate) / port_beta if port_beta != 0 else 0
+jensen_alpha = port_return_periode - (risk_free_rate + port_beta * (market_return - risk_free_rate))
 
 
 # =====================================================================
@@ -591,15 +574,15 @@ else:
         st.info(f"🤖 **Mode Optimasi Aktif:** `{mode_bobot}` — Proporsi bobot di bawah ini telah dihitung otomatis untuk memaksimalkan kinerja tersebut.")
 
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    col_m1.metric("Expected Return Portofolio", f"{port_return_skala:.2%}")
-    col_m2.metric("Variance Portofolio", f"{port_var_skala:.6f}")
-    col_m3.metric("Risiko Portofolio (SD)", f"{port_std_skala:.2%}")
+    col_m1.metric("Expected Return Portofolio", f"{port_return_periode:.4%}")
+    col_m2.metric("Variance Portofolio", f"{port_var_periode:.6f}")
+    col_m3.metric("Risiko Portofolio (SD)", f"{port_std_periode:.4%}")
     col_m4.metric("Beta Portofolio", f"{port_beta:.4f}")
 
     col_m5, col_m6, col_m7 = st.columns(3)
-    col_m5.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return di atas Risk-Free per unit total risiko")
-    col_m6.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return di atas Risk-Free per unit risiko sistematis (Beta)")
-    col_m7.metric("Jensen's Alpha", f"{jensen_alpha:.4f}", help="Kelebihan return di atas model CAPM (Outperformance)")
+    col_m5.metric("Sharpe Ratio", f"{sharpe_ratio:.4f}", help="Return per unit total risiko (per periode)")
+    col_m6.metric("Treynor Ratio", f"{treynor_ratio:.4f}", help="Return per unit risiko sistematis Beta (per periode)")
+    col_m7.metric("Jensen's Alpha", f"{jensen_alpha:.6f}", help="Kelebihan return terhadap CAPM (per periode)")
 
     df_port_summary = pd.DataFrame({
         "Emiten": saham_terpilih_list,
@@ -612,15 +595,14 @@ else:
     with st.expander("📖 Panduan, Rumus & Kesimpulan - Sheet 6 (Portofolio & Kinerja)", expanded=True):
         panduan_s6 = (
             "* **Rumus Formal Expected Return Portofolio:** E(Rp) = Sum [ w_i * E(R_i) ]\n"
-            "* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **" + f"{port_var_skala:.6f}" + "** (Memperhitungkan bobot & kovarians antar aset)\n"
-            "* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **" + f"{port_std_skala:.4f} ({port_std_skala:.2%})" + "**\n"
-            f"* **Skala Waktu yang Digunakan:** {label_faktor_teks}\n"
+            "* **Rumus Variance Portofolio ($\\sigma_p^2$):** $\\sigma_p^2 = \\sum \\sum w_i w_j \\sigma_{ij}$ = **" + f"{port_var_periode:.6f}" + "** (Murni per periode, tanpa faktor waktu)\n"
+            "* **Rumus Standar Deviasi Portofolio ($\\sigma_p$):** $\\sigma_p = \\sqrt{\\sigma_p^2}$ = **" + f"{port_std_periode:.4f} ({port_std_periode:.4%})" + "**\n"
             "* **Rumus Sharpe Ratio:** Sharpe = (Return Portofolio - Rf) / Risiko Portofolio = **" + f"{sharpe_ratio:.4f}" + "**\n"
             "* **Rumus Treynor Ratio:** Treynor = (Return Portofolio - Rf) / Beta Portofolio = **" + f"{treynor_ratio:.4f}" + "**\n"
-            "* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **" + f"{jensen_alpha:.4f}" + "**\n\n"
+            "* **Rumus Jensen's Alpha:** Alpha = Return Portofolio - [Rf + Beta * (Rm - Rf)] = **" + f"{jensen_alpha:.6f}" + "**\n\n"
             "**Kesimpulan Keseluruhan Portofolio:**\n"
-            "* Portofolio Anda menghasilkan Expected Return sebesar **" + f"{port_return_skala:.2%}" + "** dengan Variance Portofolio **" + f"{port_var_skala:.6f}" + "** dan Risiko (Standar Deviasi) sebesar **" + f"{port_std_skala:.2%}" + f"** berdasarkan {jumlah_baris_data} data historis.\n"
-            "* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko.\n"
+            "* Portofolio Anda menghasilkan Expected Return sebesar **" + f"{port_return_periode:.4%}" + "** dengan Variance Portofolio **" + f"{port_var_periode:.6f}" + "** dan Risiko (Standar Deviasi) sebesar **" + f"{port_std_periode:.4%}" + f"** per periode berdasarkan {jumlah_baris_data} data historis.\n"
+            "* Nilai Sharpe & Treynor Ratio mencerminkan efisiensi keuntungan portofolio terhadap risiko murni.\n"
             "* Nilai Jensen's Alpha positif menunjukkan portofolio berhasil mengungguli pasar (outperform)."
         )
         st.markdown(panduan_s6)
@@ -633,38 +615,35 @@ else:
     saham_dominan = saham_terpilih_list[idx_dominan]
     bobot_dominan = weights[idx_dominan] * 100
 
-    # Penentuan Status Kelayakan Investasi
-    if port_return_skala > risk_free_rate and sharpe_ratio > 0.5 and jensen_alpha > 0:
+    if port_return_periode > risk_free_rate and sharpe_ratio > 0.1 and jensen_alpha > 0:
         status_keputusan = "SANGAT DIREKOMENDASIKAN (LAYAK & OPTIMAL)"
-        saran_tindakan = "Kombinasi bobot portofolio ini mampu mengalahkan instrumen bebas risiko (Rf) sekaligus mengungguli rata-rata pasar (Alpha positif) dengan efisiensi risiko yang sangat baik."
-    elif port_return_skala > risk_free_rate and sharpe_ratio > 0:
+        saran_tindakan = "Kombinasi bobot portofolio ini mampu mengalahkan instrumen bebas risiko (Rf) sekaligus mencetak alpha positif dengan efisiensi risiko yang baik per periode."
+    elif port_return_periode > risk_free_rate:
         status_keputusan = "DIREKOMENDASIKAN (LAYAK DENGAN CATATAN)"
-        saran_tindakan = "Portofolio menghasilkan imbal hasil di atas bunga bebas risiko (Rf), namun efisiensi risikonya masih moderat. Pertimbangkan fitur optimasi bobot otomatis untuk hasil lebih maksimal."
+        saran_tindakan = "Portofolio menghasilkan imbal hasil di atas bunga bebas risiko (Rf) per periode, namun efisiensi risikonya masih dapat ditingkatkan."
     else:
         status_keputusan = "TIDAK DIREKOMENDASIKAN (PERLU REBALANCING)"
-        saran_tindakan = "Imbal hasil portofolio belum mampu mengimbangi tingkat risiko maupun instrumen bebas risiko (Rf). Disarankan mengganti komposisi emiten atau mengubah proporsi bobot investasi."
+        saran_tindakan = "Imbal hasil portofolio belum mampu mengimbangi tingkat risiko maupun instrumen bebas risiko (Rf). Disarankan menyesuaikan bobot investasi."
 
-    # Penentuan Profil Risiko Beta
     if port_beta > 1.05:
-        profil_beta = f"Agresif (Beta = {port_beta:.4f} > 1): Sensitivitas pergerakan portofolio lebih tinggi daripada pasar. Cocok untuk investor dengan profil risiko tinggi."
+        profil_beta = f"Agresif (Beta = {port_beta:.4f} > 1): Portofolio lebih volatil dibanding pergerakan pasar."
     elif port_beta < 0.95:
-        profil_beta = f"Defensif (Beta = {port_beta:.4f} < 1): Portofolio lebih tahan terhadap gejolak pasar. Cocok untuk investor moderat hingga konservatif."
+        profil_beta = f"Defensif (Beta = {port_beta:.4f} < 1): Portofolio lebih stabil terhadap fluktuasi pasar."
     else:
-        profil_beta = f"Netral / Sejalan Pasar (Beta = {port_beta:.4f} ≈ 1): Pergerakan portofolio cenderung mengikuti arah pergerakan pasar secara umum."
+        profil_beta = f"Netral / Sejalan Pasar (Beta = {port_beta:.4f} ≈ 1): Pergerakan portofolio sejalan dengan pasar."
 
-    # Penentuan Kinerja Alpha
     if jensen_alpha > 0:
-        status_alpha = f"Outperform (+{jensen_alpha:.4f}): Portofolio berhasil mencetak kelebihan keuntungan di atas ekspektasi model CAPM."
+        status_alpha = f"Outperform (+{jensen_alpha:.6f}): Portofolio mencetak kelebihan keuntungan di atas CAPM."
     else:
-        status_alpha = f"Underperform ({jensen_alpha:.4f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar berdasarkan tingkat risikonya."
+        status_alpha = f"Underperform ({jensen_alpha:.6f}): Kinerja portofolio di bawah ekspektasi model pasar."
 
     st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n{saran_tindakan}")
 
     st.markdown(
         f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
-        f"* **Alokasi Aset Utama:** Saham **{saham_dominan}** menjadi penopang utama dengan proporsi bobot sebesar **{bobot_dominan:.2f}%**.\n"
-        f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{port_return_skala:.2%}**) {'lebih tinggi' if port_return_skala > risk_free_rate else 'lebih rendah'} dibandingkan bunga bebas risiko (**{risk_free_rate:.2%}**).\n"
-        f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
+        f"* **Alokasi Aset Utama:** Saham **{saham_dominan}** mendominasi portofolio sebesar **{bobot_dominan:.2f}%**.\n"
+        f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return (**{port_return_periode:.4%}**) {'lebih tinggi' if port_return_periode > risk_free_rate else 'lebih rendah'} dari $R_f$ (**{risk_free_rate:.4%}**).\n"
+        f"* **Evaluasi Kinerja (CAPM):** {status_alpha}\n"
         f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
     )
 
