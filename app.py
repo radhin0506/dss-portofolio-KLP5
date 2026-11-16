@@ -625,6 +625,49 @@ else:
         )
         st.markdown(panduan_s6)
 
+    # --- KESIMPULAN KEPUTUSAN DSS OTOMATIS ---
+    st.markdown("---")
+    st.subheader("🎯 Rekomendasi & Kesimpulan Keputusan Akhir (DSS)")
+
+    idx_dominan = np.argmax(weights)
+    saham_dominan = saham_terpilih_list[idx_dominan]
+    bobot_dominan = weights[idx_dominan] * 100
+
+    # Penentuan Status Kelayakan Investasi
+    if port_return_skala > risk_free_rate and sharpe_ratio > 0.5 and jensen_alpha > 0:
+        status_keputusan = "SANGAT DIREKOMENDASIKAN (LAYAK & OPTIMAL)"
+        saran_tindakan = "Kombinasi bobot portofolio ini mampu mengalahkan instrumen bebas risiko (Rf) sekaligus mengungguli rata-rata pasar (Alpha positif) dengan efisiensi risiko yang sangat baik."
+    elif port_return_skala > risk_free_rate and sharpe_ratio > 0:
+        status_keputusan = "DIREKOMENDASIKAN (LAYAK DENGAN CATATAN)"
+        saran_tindakan = "Portofolio menghasilkan imbal hasil di atas bunga bebas risiko (Rf), namun efisiensi risikonya masih moderat. Pertimbangkan fitur optimasi bobot otomatis untuk hasil lebih maksimal."
+    else:
+        status_keputusan = "TIDAK DIREKOMENDASIKAN (PERLU REBALANCING)"
+        saran_tindakan = "Imbal hasil portofolio belum mampu mengimbangi tingkat risiko maupun instrumen bebas risiko (Rf). Disarankan mengganti komposisi emiten atau mengubah proporsi bobot investasi."
+
+    # Penentuan Profil Risiko Beta
+    if port_beta > 1.05:
+        profil_beta = f"Agresif (Beta = {port_beta:.4f} > 1): Sensitivitas pergerakan portofolio lebih tinggi daripada pasar. Cocok untuk investor dengan profil risiko tinggi."
+    elif port_beta < 0.95:
+        profil_beta = f"Defensif (Beta = {port_beta:.4f} < 1): Portofolio lebih tahan terhadap gejolak pasar. Cocok untuk investor moderat hingga konservatif."
+    else:
+        profil_beta = f"Netral / Sejalan Pasar (Beta = {port_beta:.4f} ≈ 1): Pergerakan portofolio cenderung mengikuti arah pergerakan pasar secara umum."
+
+    # Penentuan Kinerja Alpha
+    if jensen_alpha > 0:
+        status_alpha = f"Outperform (+{jensen_alpha:.4f}): Portofolio berhasil mencetak kelebihan keuntungan di atas ekspektasi model CAPM."
+    else:
+        status_alpha = f"Underperform ({jensen_alpha:.4f}): Kinerja portofolio masih berada di bawah ekspektasi return pasar berdasarkan tingkat risikonya."
+
+    st.success(f"**Keputusan Sistem:** **{status_keputusan}**\n\n{saran_tindakan}")
+
+    st.markdown(
+        f"**Ringkasan Dasar Pengambilan Keputusan:**\n"
+        f"* **Alokasi Aset Utama:** Saham **{saham_dominan}** menjadi penopang utama dengan proporsi bobot sebesar **{bobot_dominan:.2f}%**.\n"
+        f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{port_return_skala:.2%}**) {'lebih tinggi' if port_return_skala > risk_free_rate else 'lebih rendah'} dibandingkan bunga bebas risiko (**{risk_free_rate:.2%}**).\n"
+        f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
+        f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
+    )
+
     # --- GRAFIK KINERJA ---
     st.subheader("📊 Visualisasi Pertumbuhan Harga Saham (Base = 100)")
     df_norm = (df_harga_display / df_harga_display.iloc[0]) * 100
