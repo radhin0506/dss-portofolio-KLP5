@@ -103,7 +103,85 @@ def buat_template_excel_f3():
             ]
         })
         df_metrik.to_excel(writer, sheet_name="Parameter_Kinerja", index=False)
+
+        df_tunggal = pd.DataFrame({
+            "Emiten": ["BRIS", "CTRA", "TLKM"],
+            "Expected Return": [-0.0054, -0.0149, -0.0113],
+            "Standar Deviasi": [0.0556, 0.0502, 0.0488],
+            "Beta": [1.05, 0.98, 0.85]
+        })
+        df_tunggal.to_excel(writer, sheet_name="Saham_Tunggal", index=False)
     return output.getvalue()
+
+# --- FUNGSI TAMPILAN PERBANDINGAN PORTOFOLIO VS SAHAM TUNGGAL ---
+def tampilkan_perbandingan_saham_tunggal(df_tunggal, port_er, port_sd, port_beta, port_sharpe, port_treynor, port_alpha, rf):
+    st.markdown("---")
+    st.subheader("🔄 Perbandingan Portofolio vs Saham Tunggal")
+
+    df_comp = df_tunggal.copy()
+    baris_port = pd.DataFrame([{
+        "Emiten": "PORTOFOLIO GABUNGAN",
+        "Expected Return": port_er,
+        "Standar Deviasi (Risiko)": port_sd,
+        "Beta": port_beta,
+        "Sharpe Ratio": port_sharpe,
+        "Treynor Ratio": port_treynor,
+        "Jensen's Alpha": port_alpha
+    }])
+    df_comp_full = pd.concat([df_comp, baris_port], ignore_index=True)
+
+    st.dataframe(
+        df_comp_full.style.format({
+            "Expected Return": "{:.4%}",
+            "Standar Deviasi (Risiko)": "{:.4%}",
+            "Beta": "{:.4f}",
+            "Sharpe Ratio": "{:.4f}",
+            "Treynor Ratio": "{:.4f}",
+            "Jensen's Alpha": "{:.6f}"
+        }),
+        use_container_width=True
+    )
+
+    er_terbaik_tunggal = df_tunggal["Expected Return"].max()
+    emiten_er_terbaik = df_tunggal.loc[df_tunggal["Expected Return"].idxmax(), "Emiten"]
+
+    sd_terendah_tunggal = df_tunggal["Standar Deviasi (Risiko)"].min()
+    sd_tertinggi_tunggal = df_tunggal["Standar Deviasi (Risiko)"].max()
+    emiten_sd_terendah = df_tunggal.loc[df_tunggal["Standar Deviasi (Risiko)"].idxmin(), "Emiten"]
+    emiten_sd_tertinggi = df_tunggal.loc[df_tunggal["Standar Deviasi (Risiko)"].idxmax(), "Emiten"]
+
+    if port_sd < sd_terendah_tunggal:
+        kesimpulan_risiko = (
+            f"Risiko portofolio (**{port_sd:.2%}**) **lebih rendah** dibandingkan seluruh saham tunggal "
+            f"(bahkan lebih rendah dari saham paling stabil **{emiten_sd_terendah}** sebesar **{sd_terendah_tunggal:.2%}** dan "
+            f"saham paling fluktuatif **{emiten_sd_tertinggi}** sebesar **{sd_tertinggi_tunggal:.2%}**), membuktikan diversifikasi menekan risiko."
+        )
+    elif port_sd < sd_tertinggi_tunggal:
+        kesimpulan_risiko = (
+            f"Risiko portofolio (**{port_sd:.2%}**) berada di bawah saham berisiko tertinggi (**{emiten_sd_tertinggi}**: **{sd_tertinggi_tunggal:.2%}**), "
+            f"namun masih di atas saham tunggal terendah (**{emiten_sd_terendah}**: **{sd_terendah_tunggal:.2%}**)."
+        )
+    else:
+        kesimpulan_risiko = (
+            f"Risiko portofolio (**{port_sd:.2%}**) belum lebih rendah dari saham tunggal (**{emiten_sd_terendah}**: **{sd_terendah_tunggal:.2%}**)."
+        )
+
+    if port_er > er_terbaik_tunggal:
+        kesimpulan_return = (
+            f"*Expected Return* portofolio (**{port_er:.2%}**) **lebih tinggi** daripada seluruh saham tunggal "
+            f"(termasuk saham tunggal tertinggi **{emiten_er_terbaik}** sebesar **{er_terbaik_tunggal:.2%}**)."
+        )
+    else:
+        kesimpulan_return = (
+            f"*Expected Return* portofolio (**{port_er:.2%}**) berada di bawah saham tunggal tertinggi (**{emiten_er_terbaik}**: **{er_terbaik_tunggal:.2%}**), "
+            f"sehingga keunggulan utamanya terletak pada pengelolaan risiko/diversifikasi."
+        )
+
+    st.markdown(
+        f"**Ringkasan Perbandingan terhadap Saham Tunggal:**\n"
+        f"* **Perbandingan Risiko:** {kesimpulan_risiko}\n"
+        f"* **Perbandingan Imbal Hasil:** {kesimpulan_return}"
+    )
 
 # --- 2. SIDEBAR: NAVIGASI MENU ---
 st.sidebar.header("🧭 Navigasi Menu")
@@ -205,10 +283,10 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     )
 
     # =====================================================================
-    # FITUR 3: INPUT SAHAM, BOBOT & PARAMETER KINERJA (BISA DARI EXCEL / MANUAL)
+    # FITUR 3: INPUT SAHAM, BOBOT & PARAMETER KINERJA + PERBANDINGAN TUNGGAL
     # =====================================================================
     if mode_sumber_utama == "3️⃣ Input Saham, Bobot & Parameter Kinerja (Saran DSS)":
-        st.info("🎯 **Fitur 3 Aktif:** Anda bisa mengunggah file Excel hasil perhitungan Anda agar seluruh saham, bobot, dan parameter kinerja otomatis terisi, atau langsung mengisinya di menu samping.")
+        st.info("🎯 **Fitur 3 Aktif:** Tentukan saham, bobot, dan parameter kinerja portofolio beserta data saham tunggal (bisa diunggah dari Excel atau diisi manual) untuk melihat saran DSS dan perbandingan saham tunggal.")
         
         st.sidebar.subheader("📂 Opsional: Ambil Angka dari Excel")
         st.sidebar.download_button(
@@ -223,7 +301,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             key="uploader_excel_f3"
         )
 
-        # Nilai default awal
         def_saham_f3 = ["BRIS.JK", "CTRA.JK", "TLKM.JK"]
         def_bobot_map = {"BRIS": 35.00, "CTRA": 35.00, "TLKM": 30.00}
         def_metrik = {
@@ -237,8 +314,12 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             "treynor": "-0.0254",
             "alpha": "-0.0026"
         }
+        def_tunggal_map = {
+            "BRIS": {"er": -0.0054, "sd": 0.0556, "beta": 1.05},
+            "CTRA": {"er": -0.0149, "sd": 0.0502, "beta": 0.98},
+            "TLKM": {"er": -0.0113, "sd": 0.0488, "beta": 0.85}
+        }
 
-        # Jika user mengunggah file Excel/CSV, baca otomatis isi sheet-nya
         if file_excel_f3 is not None:
             try:
                 sheets_f3 = {}
@@ -257,7 +338,6 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                         col0_name = str(df_sh.columns[0]).lower()
                         col1_name = str(df_sh.columns[1]).lower()
 
-                        # Cek apakah tabel ini berisi daftar Kode Saham & Bobot (%)
                         if any(k in col0_name for k in ["saham", "emiten", "kode"]) and "bobot" in col1_name:
                             for _, r in df_sh.iterrows():
                                 kd = str(r.iloc[0]).strip().upper().replace(".JK", "")
@@ -270,14 +350,25 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
                                         except:
                                             bobot_dari_excel[kd] = 0.0
 
-                        # Baca baris-baris parameter kinerja
+                        if any(k in col0_name for k in ["saham", "emiten", "kode"]) and df_sh.shape[1] >= 3:
+                            for _, r in df_sh.iterrows():
+                                kd = str(r.iloc[0]).strip().upper().replace(".JK", "")
+                                if kd and kd != "NAN":
+                                    try:
+                                        er_t = float(str(r.iloc[1]).replace("%", "").replace(",", ".").strip())
+                                        sd_t = float(str(r.iloc[2]).replace("%", "").replace(",", ".").strip())
+                                        b_t = float(str(r.iloc[3]).replace(",", ".").strip()) if df_sh.shape[1] >= 4 else 1.0
+                                        def_tunggal_map[kd] = {"er": er_t, "sd": sd_t, "beta": b_t}
+                                    except:
+                                        pass
+
                         for _, r in df_sh.iterrows():
                             kunci = str(r.iloc[0]).lower().strip()
                             val_raw = r.iloc[1]
                             if pd.notna(val_raw):
                                 val_str = str(val_raw).replace("%", "").replace(",", ".").strip()
                                 try:
-                                    float(val_str)  # pastikan valid angka
+                                    float(val_str)
                                     if "expected return portofolio" in kunci or kunci in ["er", "erp"]:
                                         def_metrik["er"] = val_str
                                     elif "variance" in kunci or "varians" in kunci:
@@ -344,7 +435,7 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         if abs(total_b_f3 - 100.0) > 0.01:
             st.sidebar.warning(f"⚠️ Total bobot saat ini: **{total_b_f3:.4f}%**. Disarankan pas 100.00%.")
 
-        st.sidebar.subheader("📥 3. Parameter Kinerja (Otomatis dari Excel / Edit)")
+        st.sidebar.subheader("📥 3. Parameter Kinerja Portofolio")
         in_er = st.sidebar.text_input("Expected Return Portofolio (Desimal):", value=def_metrik["er"], key="f3_er")
         in_var = st.sidebar.text_input("Variance Portofolio:", value=def_metrik["var"], key="f3_var")
         in_sd = st.sidebar.text_input("Standar Deviasi / Risiko (SD):", value=def_metrik["sd"], key="f3_sd")
@@ -363,11 +454,33 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             val_sd = float(in_sd.replace(",", "."))
             val_beta = float(in_beta.replace(",", "."))
             val_rf = float(in_rf.replace(",", "."))
+            val_rm = float(in_rm.replace(",", "."))
             val_sharpe = float(in_sharpe.replace(",", "."))
             val_treynor = float(in_treynor.replace(",", "."))
             val_alpha = float(in_alpha.replace(",", "."))
         except:
-            val_er, val_var, val_sd, val_beta, val_rf, val_sharpe, val_treynor, val_alpha = 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
+            val_er, val_var, val_sd, val_beta, val_rf, val_rm, val_sharpe, val_treynor, val_alpha = 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
+        st.sidebar.subheader("📌 4. Parameter Saham Tunggal (Perbandingan)")
+        data_tunggal_rows = []
+        for saham in saham_bersih_f3:
+            d_t = def_tunggal_map.get(saham, {"er": 0.0, "sd": 0.03, "beta": 1.0})
+            with st.sidebar.expander(f"Saham Tunggal: {saham}"):
+                er_s = st.number_input(f"ER {saham} (Desimal)", value=float(d_t["er"]), step=0.0001, format="%.4f", key=f"f3_t_er_{saham}")
+                sd_s = st.number_input(f"SD {saham} (Desimal)", value=float(d_t["sd"]), step=0.0001, format="%.4f", key=f"f3_t_sd_{saham}")
+                b_s = st.number_input(f"Beta {saham}", value=float(d_t["beta"]), step=0.0100, format="%.4f", key=f"f3_t_b_{saham}")
+                sh_s = (er_s - val_rf) / sd_s if sd_s != 0 else 0.0
+                tr_s = (er_s - val_rf) / b_s if b_s != 0 else 0.0
+                al_s = er_s - (val_rf + b_s * (val_rm - val_rf))
+                data_tunggal_rows.append({
+                    "Emiten": saham,
+                    "Expected Return": er_s,
+                    "Standar Deviasi (Risiko)": sd_s,
+                    "Beta": b_s,
+                    "Sharpe Ratio": sh_s,
+                    "Treynor Ratio": tr_s,
+                    "Jensen's Alpha": al_s
+                })
 
         idx_dom = np.argmax(list_bobot_f3)
         saham_dominan = saham_bersih_f3[idx_dom]
@@ -426,6 +539,11 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
             f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{val_er:.2%}** / desimal: **{val_er:.4f}**) {'lebih tinggi' if val_er > val_rf else 'lebih rendah'} dibandingkan bunga bebas risiko (**{val_rf:.4f}**).\n"
             f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
             f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
+        )
+
+        tampilkan_perbandingan_saham_tunggal(
+            pd.DataFrame(data_tunggal_rows),
+            val_er, val_sd, val_beta, val_sharpe, val_treynor, val_alpha, val_rf
         )
         st.stop()
 
@@ -682,7 +800,6 @@ if df_return_stats.empty:
 
 mean_return_stats = df_return_stats.mean()
 
-# Matriks Kovarians Antar Emiten (Diagonal dikosongkan)
 cov_matrix_stats = df_return_stats.cov()
 for col in cov_matrix_stats.columns:
     cov_matrix_stats.loc[col, col] = np.nan
@@ -703,7 +820,8 @@ for col in df_return_stats.columns:
     cov_val = pd.concat([df_return_stats[col], market_proxy_return], axis=1).cov().iloc[0, 1]
     beta_i = cov_val / market_variance if market_variance != 0 else 1.0
     beta_saham.append(beta_i)
-port_beta = np.sum(weights * np.array(beta_saham))
+beta_saham_arr = np.array(beta_saham)
+port_beta = np.sum(weights * beta_saham_arr)
 
 sharpe_ratio = (port_return_periode - risk_free_rate) / port_std_periode if port_std_periode != 0 else 0
 treynor_ratio = (port_return_periode - risk_free_rate) / port_beta if port_beta != 0 else 0
@@ -719,9 +837,9 @@ if menu_pilihan == "🏠 Beranda (Home)":
     st.markdown("### Analisis Portofolio Berbasis Konstituen Jakarta Islamic Index (JII)")
     
     st.info(
-        "💡 **Tentang Aplikasi:** Aplikasi web ini dirancang dengan **3 Fitur Utama**: "
+        "💡 **Tentang Aplikasi:** Aplikasi web ini dirancang dengan **3 Fitur Utama** dan **Perbandingan Saham Tunggal**: "
         "(1) Otomatis Yahoo Finance, (2) Upload File Data Mentah Excel/CSV, dan "
-        "(3) Input Saham, Bobot & Parameter Kinerja (bisa dari file Excel maupun manual) untuk langsung menghasilkan saran dan keputusan investasi otomatis."
+        "(3) Input Saham, Bobot & Parameter Kinerja untuk langsung menghasilkan saran dan perbandingan terhadap saham tunggal."
     )
     
     st.markdown("---")
@@ -738,7 +856,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
         st.markdown("""
         * **4️⃣ Sheet 4: Kovarians** — Menganalisis arah pergerakan bersama antar emiten.
         * **5️⃣ Sheet 5: Koefisien Korelasi** — Mengukur keeratan hubungan untuk diversifikasi.
-        * **6️⃣ Sheet 6: Return Portofolio & Kinerja** — Evaluasi akhir menggunakan Sharpe, Treynor, & Alpha.
+        * **6️⃣ Sheet 6: Return Portofolio & Kinerja** — Evaluasi akhir menggunakan Sharpe, Treynor, Alpha, & Perbandingan Saham Tunggal.
         """)
     
     st.success("👉 Silakan buka menu navigasi di pojok kiri atas untuk memilih salah satu dari 3 fitur utama tersebut!")
@@ -748,7 +866,6 @@ else:
     # ANALISIS LENGKAP 6 SHEET (UNTUK FITUR 1 & FITUR 2)
     # =====================================================================
     
-    # --- SHEET 1: HARGA CLOSE ---
     st.header(f"1️⃣ Sheet 1: Harga Close ({periode_hitung})")
     df_sheet1 = df_harga_display.reset_index()
     if 'Tanggal' in df_sheet1.columns:
@@ -766,7 +883,6 @@ else:
             "* **Kesimpulan Sheet 1:** Data harga mentah ini berfungsi sebagai pondasi utama seluruh perhitungan."
         )
 
-    # --- SHEET 2: RETURN REALISASI & ER ---
     st.header(f"2️⃣ Sheet 2: Return Realisasi & ER ({periode_hitung})")
     df_sheet2 = df_return.copy().reset_index(drop=True)
     df_sheet2.insert(0, "No", range(1, len(df_sheet2) + 1))
@@ -787,7 +903,6 @@ else:
             "* **Kesimpulan Sheet 2:** Emiten dengan ER positif menunjukkan tren keuntungan yang baik."
         )
 
-    # --- SHEET 3: VARIANS & STANDAR DEVIASI ---
     st.header("3️⃣ Sheet 3: Varians & Standar Deviasi")
     df_sheet3 = pd.DataFrame({
         "Emiten": saham_terpilih_list,
@@ -806,7 +921,6 @@ else:
             "* **Kesimpulan Sheet 3:** Nilai standar deviasi menunjukkan seberapa besar volatilitas atau risiko masing-masing aset."
         )
 
-    # --- SHEET 4: COVARIANCE ---
     st.header("4️⃣ Sheet 4: Kovarians (Covariance Matrix)")
     st.dataframe(cov_matrix_stats.style.format("{:.6f}", na_rep="-"), use_container_width=True)
 
@@ -816,7 +930,6 @@ else:
             "* **Kesimpulan Sheet 4:** Kovarians negatif sangat baik untuk diversifikasi portofolio. Nilai pada saham yang sama (diagonal) dikosongkan agar tidak membingungkan."
         )
 
-    # --- SHEET 5: KOEFISIEN KORELASI ---
     st.header("5️⃣ Sheet 5: Koefisien Korelasi")
     corr_matrix = df_return_stats.corr()
     for col in corr_matrix.columns:
@@ -829,7 +942,6 @@ else:
             "* **Kesimpulan Sheet 5:** Pilih emiten dengan korelasi rendah atau negatif untuk diversifikasi optimal."
         )
 
-    # --- SHEET 6: RETURN PORTOFOLIO & KINERJA ---
     st.header("6️⃣ Sheet 6: Return Portofolio, Risiko, & Metrik Kinerja (Sharpe, Treynor, Alpha)")
 
     if "Otomatis" in mode_bobot:
@@ -907,4 +1019,28 @@ else:
         f"* **Perbandingan Bebas Risiko ($R_f$):** Expected Return portofolio (**{port_return_periode:.2%}** / desimal: **{port_return_periode:.4f}**) {'lebih tinggi' if port_return_periode > risk_free_rate else 'lebih rendah'} dibandingkan bunga bebas risiko (**{risk_free_rate:.4f}**).\n"
         f"* **Evaluasi Kinerja Pasar (CAPM):** {status_alpha}\n"
         f"* **Karakteristik Risiko Sistematis:** {profil_beta}"
+    )
+
+    # --- PERBANDINGAN PORTOFOLIO VS SAHAM TUNGGAL (FITUR 1 & FITUR 2) ---
+    tunggal_f12 = []
+    for idx, saham in enumerate(saham_terpilih_list):
+        er_i = float(mean_return_stats.iloc[idx])
+        sd_i = float(std_stats.iloc[idx])
+        b_i = float(beta_saham_arr[idx])
+        sh_i = (er_i - risk_free_rate) / sd_i if sd_i != 0 else 0.0
+        tr_i = (er_i - risk_free_rate) / b_i if b_i != 0 else 0.0
+        al_i = er_i - (risk_free_rate + b_i * (market_return - risk_free_rate))
+        tunggal_f12.append({
+            "Emiten": saham,
+            "Expected Return": er_i,
+            "Standar Deviasi (Risiko)": sd_i,
+            "Beta": b_i,
+            "Sharpe Ratio": sh_i,
+            "Treynor Ratio": tr_i,
+            "Jensen's Alpha": al_i
+        })
+
+    tampilkan_perbandingan_saham_tunggal(
+        pd.DataFrame(tunggal_f12),
+        port_return_periode, port_std_periode, port_beta, sharpe_ratio, treynor_ratio, jensen_alpha, risk_free_rate
     )
