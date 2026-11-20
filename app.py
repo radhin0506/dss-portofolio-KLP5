@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
+import io
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DSS Portofolio Saham Syariah (JII)", layout="wide")
@@ -66,6 +67,43 @@ def cari_bobot_optimal(mean_ret, cov_mat, beta_arr, rf, rm, target="sharpe", n_s
         
     idx_terbaik = np.argmax(skor)
     return w_acak[idx_terbaik] * 100.0
+
+# --- FUNGSI PEMBUAT TEMPLATE EXCEL FITUR 3 ---
+def buat_template_excel_f3():
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_bobot = pd.DataFrame({
+            "Kode Saham": ["BRIS", "CTRA", "TLKM"],
+            "Bobot (%)": [35.00, 35.00, 30.00]
+        })
+        df_bobot.to_excel(writer, sheet_name="Komposisi_Saham", index=False)
+
+        df_metrik = pd.DataFrame({
+            "Parameter": [
+                "Expected Return Portofolio",
+                "Variance Portofolio",
+                "Standar Deviasi Portofolio",
+                "Beta Portofolio",
+                "Bunga Bebas Risiko (Rf)",
+                "Expected Return Pasar (Rm)",
+                "Sharpe Ratio",
+                "Treynor Ratio",
+                "Jensen Alpha"
+            ],
+            "Nilai": [
+                -0.0105,
+                0.000904,
+                0.03007,
+                0.4493,
+                0.00094,
+                -0.01865,
+                -0.3803,
+                -0.0254,
+                -0.0026
+            ]
+        })
+        df_metrik.to_excel(writer, sheet_name="Parameter_Kinerja", index=False)
+    return output.getvalue()
 
 # --- 2. SIDEBAR: NAVIGASI MENU ---
 st.sidebar.header("🧭 Navigasi Menu")
@@ -167,16 +205,113 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
     )
 
     # =====================================================================
-    # FITUR 3: INPUT SAHAM, BOBOT & PARAMETER KINERJA -> SARAN KEPUTUSAN DSS
+    # FITUR 3: INPUT SAHAM, BOBOT & PARAMETER KINERJA (BISA DARI EXCEL / MANUAL)
     # =====================================================================
     if mode_sumber_utama == "3️⃣ Input Saham, Bobot & Parameter Kinerja (Saran DSS)":
-        st.info("🎯 **Fitur 3 Aktif:** Tentukan jumlah & daftar saham beserta bobotnya terlebih dahulu di *sidebar*, lalu masukkan angka parameter kinerja untuk langsung mendapatkan saran keputusan investasi.")
+        st.info("🎯 **Fitur 3 Aktif:** Anda bisa mengunggah file Excel hasil perhitungan Anda agar seluruh saham, bobot, dan parameter kinerja otomatis terisi, atau langsung mengisinya di menu samping.")
         
+        st.sidebar.subheader("📂 Opsional: Ambil Angka dari Excel")
+        st.sidebar.download_button(
+            label="📥 Unduh Contoh Format Excel (.xlsx)",
+            data=buat_template_excel_f3(),
+            file_name="Template_Parameter_Kinerja_DSS.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        file_excel_f3 = st.sidebar.file_uploader(
+            "Unggah File Excel/CSV Hasil Hitung:",
+            type=["xlsx", "csv"],
+            key="uploader_excel_f3"
+        )
+
+        # Nilai default awal
+        def_saham_f3 = ["BRIS.JK", "CTRA.JK", "TLKM.JK"]
+        def_bobot_map = {"BRIS": 35.00, "CTRA": 35.00, "TLKM": 30.00}
+        def_metrik = {
+            "er": "-0.0105",
+            "var": "0.000904",
+            "sd": "0.03007",
+            "beta": "0.4493",
+            "rf": "0.00094",
+            "rm": "-0.01865",
+            "sharpe": "-0.3803",
+            "treynor": "-0.0254",
+            "alpha": "-0.0026"
+        }
+
+        # Jika user mengunggah file Excel/CSV, baca otomatis isi sheet-nya
+        if file_excel_f3 is not None:
+            try:
+                sheets_f3 = {}
+                if file_excel_f3.name.endswith(".xlsx"):
+                    xls_f3 = pd.ExcelFile(file_excel_f3)
+                    for sh in xls_f3.sheet_names:
+                        sheets_f3[sh] = pd.read_excel(xls_f3, sheet_name=sh)
+                else:
+                    sheets_f3["CSV_Data"] = pd.read_csv(file_excel_f3)
+
+                saham_dari_excel = []
+                bobot_dari_excel = {}
+
+                for df_sh in sheets_f3.values():
+                    if df_sh.shape[1] >= 2:
+                        col0_name = str(df_sh.columns[0]).lower()
+                        col1_name = str(df_sh.columns[1]).lower()
+
+                        # Cek apakah tabel ini berisi daftar Kode Saham & Bobot (%)
+                        if any(k in col0_name for k in ["saham", "emiten", "kode"]) and "bobot" in col1_name:
+                            for _, r in df_sh.iterrows():
+                                kd = str(r.iloc[0]).strip().upper().replace(".JK", "")
+                                if kd and kd != "NAN":
+                                    ticker_full = f"{kd}.JK"
+                                    if ticker_full in DAFTAR_SAHAM_JII:
+                                        saham_dari_excel.append(ticker_full)
+                                        try:
+                                            bobot_dari_excel[kd] = float(str(r.iloc[1]).replace("%", "").replace(",", ".").strip())
+                                        except:
+                                            bobot_dari_excel[kd] = 0.0
+
+                        # Baca baris-baris parameter kinerja
+                        for _, r in df_sh.iterrows():
+                            kunci = str(r.iloc[0]).lower().strip()
+                            val_raw = r.iloc[1]
+                            if pd.notna(val_raw):
+                                val_str = str(val_raw).replace("%", "").replace(",", ".").strip()
+                                try:
+                                    float(val_str)  # pastikan valid angka
+                                    if "expected return portofolio" in kunci or kunci in ["er", "erp"]:
+                                        def_metrik["er"] = val_str
+                                    elif "variance" in kunci or "varians" in kunci:
+                                        def_metrik["var"] = val_str
+                                    elif "standar deviasi" in kunci or "standard deviation" in kunci or kunci in ["sd", "risiko"]:
+                                        def_metrik["sd"] = val_str
+                                    elif "beta" in kunci:
+                                        def_metrik["beta"] = val_str
+                                    elif "bebas risiko" in kunci or kunci == "rf":
+                                        def_metrik["rf"] = val_str
+                                    elif "pasar" in kunci or kunci in ["rm", "erm"]:
+                                        def_metrik["rm"] = val_str
+                                    elif "sharpe" in kunci:
+                                        def_metrik["sharpe"] = val_str
+                                    elif "treynor" in kunci:
+                                        def_metrik["treynor"] = val_str
+                                    elif "alpha" in kunci or "jensen" in kunci:
+                                        def_metrik["alpha"] = val_str
+                                except:
+                                    pass
+
+                if len(saham_dari_excel) >= 2:
+                    def_saham_f3 = saham_dari_excel
+                    def_bobot_map = bobot_dari_excel
+
+                st.sidebar.success("✅ Angka berhasil dibaca dari file Excel!")
+            except Exception as e:
+                st.sidebar.error(f"Gagal membaca Excel: {e}")
+
         st.sidebar.subheader("📌 1. Pilih Daftar Saham Portofolio")
         saham_input_f3 = st.sidebar.multiselect(
             "Pilih Saham (Min. 2):",
             options=list(DAFTAR_SAHAM_JII.keys()),
-            default=["BRIS.JK", "CTRA.JK", "TLKM.JK"],
+            default=def_saham_f3,
             format_func=lambda x: DAFTAR_SAHAM_JII[x],
             key="f3_multiselect_saham"
         )
@@ -192,12 +327,13 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         list_bobot_f3 = []
         saham_bersih_f3 = [s.replace(".JK", "") for s in saham_input_f3]
         
-        for i, saham in enumerate(saham_bersih_f3):
+        for saham in saham_bersih_f3:
+            nilai_awal_bobot = float(def_bobot_map.get(saham, bobot_default_f3))
             b_val = st.sidebar.number_input(
                 f"Bobot {saham} (%)", 
                 min_value=0.0, 
                 max_value=100.0, 
-                value=float(bobot_default_f3), 
+                value=nilai_awal_bobot, 
                 step=0.01, 
                 format="%.4f",
                 key=f"f3_bobot_{saham}"
@@ -208,18 +344,18 @@ if menu_pilihan == "📊 Analisis Lengkap (6 Sheet)":
         if abs(total_b_f3 - 100.0) > 0.01:
             st.sidebar.warning(f"⚠️ Total bobot saat ini: **{total_b_f3:.4f}%**. Disarankan pas 100.00%.")
 
-        st.sidebar.subheader("📥 3. Masukkan Parameter Kinerja")
-        in_er = st.sidebar.text_input("Expected Return Portofolio (Desimal):", value="0.0254", key="f3_er")
-        in_var = st.sidebar.text_input("Variance Portofolio:", value="0.0012", key="f3_var")
-        in_sd = st.sidebar.text_input("Standar Deviasi / Risiko (SD):", value="0.0346", key="f3_sd")
-        in_beta = st.sidebar.text_input("Beta Portofolio:", value="1.0250", key="f3_beta")
+        st.sidebar.subheader("📥 3. Parameter Kinerja (Otomatis dari Excel / Edit)")
+        in_er = st.sidebar.text_input("Expected Return Portofolio (Desimal):", value=def_metrik["er"], key="f3_er")
+        in_var = st.sidebar.text_input("Variance Portofolio:", value=def_metrik["var"], key="f3_var")
+        in_sd = st.sidebar.text_input("Standar Deviasi / Risiko (SD):", value=def_metrik["sd"], key="f3_sd")
+        in_beta = st.sidebar.text_input("Beta Portofolio:", value=def_metrik["beta"], key="f3_beta")
         
-        in_rf = st.sidebar.text_input("Bunga Bebas Risiko (Rf):", value="0.0010", key="f3_rf")
-        in_rm = st.sidebar.text_input("Expected Return Pasar (Rm):", value="0.0020", key="f3_rm")
+        in_rf = st.sidebar.text_input("Bunga Bebas Risiko (Rf):", value=def_metrik["rf"], key="f3_rf")
+        in_rm = st.sidebar.text_input("Expected Return Pasar (Rm):", value=def_metrik["rm"], key="f3_rm")
         
-        in_sharpe = st.sidebar.text_input("Sharpe Ratio:", value="0.7050", key="f3_sharpe")
-        in_treynor = st.sidebar.text_input("Treynor Ratio:", value="0.0238", key="f3_treynor")
-        in_alpha = st.sidebar.text_input("Jensen's Alpha:", value="0.0045", key="f3_alpha")
+        in_sharpe = st.sidebar.text_input("Sharpe Ratio:", value=def_metrik["sharpe"], key="f3_sharpe")
+        in_treynor = st.sidebar.text_input("Treynor Ratio:", value=def_metrik["treynor"], key="f3_treynor")
+        in_alpha = st.sidebar.text_input("Jensen's Alpha:", value=def_metrik["alpha"], key="f3_alpha")
 
         try:
             val_er = float(in_er.replace(",", "."))
@@ -585,7 +721,7 @@ if menu_pilihan == "🏠 Beranda (Home)":
     st.info(
         "💡 **Tentang Aplikasi:** Aplikasi web ini dirancang dengan **3 Fitur Utama**: "
         "(1) Otomatis Yahoo Finance, (2) Upload File Data Mentah Excel/CSV, dan "
-        "(3) Input Saham, Bobot & Parameter Kinerja untuk langsung menghasilkan saran dan keputusan investasi otomatis."
+        "(3) Input Saham, Bobot & Parameter Kinerja (bisa dari file Excel maupun manual) untuk langsung menghasilkan saran dan keputusan investasi otomatis."
     )
     
     st.markdown("---")
